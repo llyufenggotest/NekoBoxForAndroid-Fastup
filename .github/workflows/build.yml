@@ -3,9 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
-    paths:
-      - 'nb4a.properties'
+      - custom
 jobs:
   libcore:
     name: Native Build (LibCore)

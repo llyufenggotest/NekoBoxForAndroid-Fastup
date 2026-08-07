@@ -9,7 +9,7 @@ pushd ..
 ####
 
 if [ ! -d "sing-box" ]; then
-  git clone --no-checkout https://github.com/starifly/sing-box.git
+  git clone --no-checkout https://github.com/llyufeng/sing-box.git
 fi
 pushd sing-box
 git checkout "$COMMIT_SING_BOX"
@@ -22,6 +22,33 @@ if [ ! -d "libneko" ]; then
 fi
 pushd libneko
 git checkout "$COMMIT_LIBNEKO"
+popd
+
+####
+
+if [ ! -d "sing-shadowsocks2" ]; then
+  git clone --no-checkout https://github.com/llyufeng/sing-shadowsocks2.git
+fi
+pushd sing-shadowsocks2
+git checkout "$COMMIT_SING_SHADOWSOCKS2"
+popd
+
+####
+
+if [ ! -d "sing-vmess" ]; then
+  git clone --no-checkout https://github.com/llyufeng/sing-vmess.git
+fi
+pushd sing-vmess
+git checkout "$COMMIT_SING_VMESS"
+popd
+
+####
+
+if [ ! -d "sing-anytls-local" ]; then
+  git clone --no-checkout https://github.com/llyufeng/sing-anytls.git sing-anytls-local
+fi
+pushd sing-anytls-local
+git checkout "$COMMIT_SING_ANYTLS"
 popd
 
 ####
