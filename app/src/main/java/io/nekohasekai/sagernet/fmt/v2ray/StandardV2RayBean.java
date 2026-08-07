@@ -148,7 +148,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(10);
+        output.writeInt(10); // 保持 Mod-12 的版本号
         super.serialize(output);
         output.writeString(uuid);
         output.writeString(encryption);
@@ -184,7 +184,7 @@ public abstract class StandardV2RayBean extends AbstractBean {
                 output.writeString(path);
                 break;
             }
-            case "xhttp": {
+            case "xhttp": { // 🚀 注入 xhttp 序列化
                 output.writeString(host);
                 output.writeString(path);
                 output.writeString(xhttpMode);

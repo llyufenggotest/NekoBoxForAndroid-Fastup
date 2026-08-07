@@ -27,6 +27,8 @@ import io.nekohasekai.sagernet.fmt.shadowsocksr.ShadowsocksRBean
 import io.nekohasekai.sagernet.fmt.shadowsocksr.buildSingBoxOutboundShadowsocksRBean
 import io.nekohasekai.sagernet.fmt.snell.SnellBean
 import io.nekohasekai.sagernet.fmt.snell.buildSingBoxOutboundSnellBean
+import io.nekohasekai.sagernet.fmt.xhttp.XHttpBean
+import io.nekohasekai.sagernet.fmt.xhttp.buildSingBoxOutboundXHttpBean
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.buildSingBoxOutboundWireguardBean
 import io.nekohasekai.sagernet.ktx.isIpAddress
@@ -138,6 +140,7 @@ fun buildConfig(
     val buildSelector = !forTest && group?.isSelector == true && !forExport
     val userDNSRuleList = mutableListOf<DNSRule_DefaultOptions>()
     val domainListDNSDirectForce = mutableListOf<String>()
+    val nodeDomainList = mutableListOf<String>()
     val bypassDNSBeans = hashSetOf<AbstractBean>()
     val isVPN = DataStore.serviceMode == Key.MODE_VPN
     val bind = if (!forTest && DataStore.allowAccess) "0.0.0.0" else LOCALHOST
@@ -401,6 +404,9 @@ fun buildConfig(
                         is SnellBean ->
                             buildSingBoxOutboundSnellBean(bean)
 
+                        is XHttpBean ->
+                            buildSingBoxOutboundXHttpBean(bean)
+
                         else -> throw IllegalStateException("can't reach")
                     }
 
@@ -438,6 +444,7 @@ fun buildConfig(
                         // don't loopback
                         if (defaultServerDomainStrategy != "" && !serverAddress.isIpAddress()) {
                             domainListDNSDirectForce.add("full:$serverAddress")
+                            nodeDomainList.add("full:$serverAddress")
                         }
                     }
                     _hack_config_map["domain_strategy"] =
@@ -797,6 +804,7 @@ fun buildConfig(
 
             if (!serverAddr.isIpAddress()) {
                 domainListDNSDirectForce.add("full:${serverAddr}")
+                nodeDomainList.add("full:${serverAddr}")
             }
         }
 
@@ -833,6 +841,16 @@ fun buildConfig(
             })
         }
 
+        if (group != null && !group.customDirectDns.isNullOrBlank()) {
+            dns.servers.add(DNSServerOptions().apply {
+                address = group.customDirectDns!!
+                tag = "dns-airport"
+                detour = TAG_DIRECT
+                address_resolver = "dns-local"
+                strategy = autoDnsDomainStrategy(SingBoxOptionsUtil.domainStrategy("dns-direct"))
+            })
+        }
+
         remoteDns.firstOrNull().let {
             // Always use direct DNS for urlTest
             if (!forTest) dns.servers.add(DNSServerOptions().apply {
@@ -853,7 +871,7 @@ fun buildConfig(
         }
 
         if (forTest) {
-            dns.rules = listOf()
+            dns.rules = mutableListOf()
         } else {
             // built-in DNS rules
             route.rules.add(0, Rule_DefaultOptions().apply {
@@ -907,6 +925,13 @@ fun buildConfig(
                     server = "dns-direct"
                 })
             }
+        }
+
+        if (group != null && !group.customDirectDns.isNullOrBlank() && nodeDomainList.isNotEmpty()) {
+            (dns.rules as MutableList).add(0, DNSRule_DefaultOptions().apply {
+                makeSingBoxRule(nodeDomainList.toHashSet().toList())
+                server = "dns-airport"
+            })
         }
 
         if (!forTest) _hack_custom_config = DataStore.globalCustomConfig

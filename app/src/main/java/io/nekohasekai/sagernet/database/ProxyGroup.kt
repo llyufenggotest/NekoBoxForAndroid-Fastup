@@ -21,7 +21,8 @@ data class ProxyGroup(
     var order: Int = GroupOrder.ORIGIN,
     var isSelector: Boolean = false,
     var frontProxy: Long = -1L,
-    var landingProxy: Long = -1L
+    var landingProxy: Long = -1L, // 🚀 补上逗号了
+    var customDirectDns: String? = null // 🚀 数据库字段
 ) : Serializable() {
 
     @Transient
@@ -33,41 +34,40 @@ data class ProxyGroup(
 
     override fun serializeToBuffer(output: ByteBufferOutput) {
         if (export) {
-
             output.writeInt(0)
             output.writeString(name)
             output.writeInt(type)
             val subscription = subscription!!
             subscription.serializeForShare(output)
-
         } else {
-            output.writeInt(0)
+            output.writeInt(1) // 🚀 升级版本号为 1
             output.writeLong(id)
             output.writeLong(userOrder)
             output.writeBoolean(ungrouped)
             output.writeString(name)
             output.writeInt(type)
 
+            // ⚠️ 注意：不要在中间写 customDirectDns！
             if (type == GroupType.SUBSCRIPTION) {
                 subscription?.serializeToBuffer(output)
             }
             output.writeInt(order)
+            
+            // 🚀 核心修复：新字段必须在流的最末尾写入，保证向后兼容！
+            output.writeString(customDirectDns)
         }
     }
 
     override fun deserializeFromBuffer(input: ByteBufferInput) {
         if (export) {
             val version = input.readInt()
-
             name = input.readString()
             type = input.readInt()
             val subscription = SubscriptionBean()
             this.subscription = subscription
-
             subscription.deserializeFromShare(input)
         } else {
             val version = input.readInt()
-
             id = input.readLong()
             userOrder = input.readLong()
             ungrouped = input.readBoolean()
@@ -77,10 +77,14 @@ data class ProxyGroup(
             if (type == GroupType.SUBSCRIPTION) {
                 val subscription = SubscriptionBean()
                 this.subscription = subscription
-
                 subscription.deserializeFromBuffer(input)
             }
             order = input.readInt()
+            
+            // 🚀 核心修复：按顺序在最末尾读取！这解决了 JSON 错乱问题
+            if (version >= 1) {
+                customDirectDns = input.readString()
+            }
         }
     }
 
@@ -123,21 +127,17 @@ data class ProxyGroup(
 
         @Insert
         fun insert(groupList: List<ProxyGroup>)
-
     }
 
     companion object {
         @JvmField
         val CREATOR = object : Serializable.CREATOR<ProxyGroup>() {
-
             override fun newInstance(): ProxyGroup {
                 return ProxyGroup()
             }
-
             override fun newArray(size: Int): Array<ProxyGroup?> {
                 return arrayOfNulls(size)
             }
         }
     }
-
 }

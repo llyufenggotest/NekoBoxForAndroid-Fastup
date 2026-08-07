@@ -281,6 +281,10 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var serverCustomOutbound by profileCacheStore.string(Key.SERVER_CUSTOM_OUTBOUND)
 
     var groupName by profileCacheStore.string(Key.GROUP_NAME)
+    
+    // 🚀🚀🚀 这里加上了！UI 层没绑定的罪魁祸首！🚀🚀🚀
+    var groupCustomDns by profileCacheStore.string("groupCustomDns")
+    
     var groupType by profileCacheStore.stringToInt(Key.GROUP_TYPE)
     var groupOrder by profileCacheStore.stringToInt(Key.GROUP_ORDER)
     var groupIsSelector by profileCacheStore.boolean(Key.GROUP_IS_SELECTOR)
@@ -296,8 +300,6 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var subscriptionFilterRegex by profileCacheStore.string(Key.SUBSCRIPTION_FILTER_REGEX)
 
     var rulesFirstCreate by profileCacheStore.boolean("rulesFirstCreate")
-
-    // var enableTLSFragment by configurationStore.boolean(Key.ENABLE_TLS_FRAGMENT)
 
     var webdavServer: String?
         get() = configurationStore.getString("webdavServer")

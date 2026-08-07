@@ -819,15 +819,14 @@ class ConfigurationFragment @JvmOverloads constructor(
                         profile.status = 0
                         var address = profile.requireBean().serverAddress
                         if (!address.isIpAddress()) {
-                            try {
-                                SagerNet.underlyingNetwork!!.getAllByName(address).apply {
-                                    if (isNotEmpty()) {
-                                        address = this[0].hostAddress
-                                    }
-                                }
-                            } catch (ignored: UnknownHostException) {
+                            val customDns = group.customDirectDns.takeIf { !it.isNullOrBlank() }
+                                ?: DataStore.directDns.split("\n").firstOrNull { it.isNotBlank() && !it.startsWith("#") }
+                            val resolvedIp = resolveDomainCustom(address, customDns)
+                            if (resolvedIp != null) {
+                                address = resolvedIp
                             }
                         }
+
                         if (!isActive) break
                         if (!address.isIpAddress()) {
                             profile.status = 2
@@ -1864,11 +1863,19 @@ class ConfigurationFragment @JvmOverloads constructor(
                 }
 
                 editButton.setOnClickListener {
-                    it.context.startActivity(
-                        proxyEntity.settingIntent(
-                            it.context, proxyGroup.type == GroupType.SUBSCRIPTION
+                    try {
+                        it.context.startActivity(
+                            proxyEntity.settingIntent(
+                                it.context, proxyGroup.type == GroupType.SUBSCRIPTION
+                            )
                         )
-                    )
+                    } catch (e: Exception) {
+                        android.widget.Toast.makeText(
+                            it.context,
+                            "特殊魔改节点，暂不支持在手机端编辑配置",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
 
                 removeButton.setOnClickListener {
@@ -1897,11 +1904,19 @@ class ConfigurationFragment @JvmOverloads constructor(
                     popup.setOnMenuItemClickListener { menuItem ->
                         when (menuItem.itemId) {
                             R.id.action_edit -> {
-                                it.context.startActivity(
-                                    proxyEntity.settingIntent(
-                                        it.context, proxyGroup.type == GroupType.SUBSCRIPTION
+                                try {
+                                    it.context.startActivity(
+                                        proxyEntity.settingIntent(
+                                            it.context, proxyGroup.type == GroupType.SUBSCRIPTION
+                                        )
                                     )
-                                )
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(
+                                        it.context,
+                                        "特殊魔改节点，暂不支持在手机端编辑配置",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
                                 true
                             }
                             R.id.action_share -> {
@@ -2049,6 +2064,171 @@ class ConfigurationFragment @JvmOverloads constructor(
     private fun cancelSearch(searchView: SearchView) {
         searchView.onActionViewCollapsed()
         searchView.clearFocus()
+    }
+
+    // ==========================================
+    // 🚀 DNS 黑科技区域：接管原生解析拦截
+    // ==========================================
+
+    private fun resolveDomainCustom(domain: String, dnsConfig: String?): String? {
+        if (domain.isIpAddress()) return domain
+        var dns = dnsConfig?.trim()
+        if (dns.isNullOrEmpty() || dns == "local" || dns == "fakeip") {
+            dns = "223.5.5.5" // Ultimate safe fallback
+        }
+
+        var resolved: String? = null
+        if (dns!!.startsWith("https://")) {
+            resolved = resolveDoH(domain, dns)
+        } else {
+            val cleanDns = dns.removePrefix("tcp://").removePrefix("udp://").removePrefix("tls://")
+            val parts = cleanDns.split(":")
+            val host = parts[0]
+            val port = if (parts.size > 1) parts[1].toIntOrNull() ?: 53 else 53
+            resolved = resolveUdpDns(domain, host, port)
+        }
+
+        // 终极兜底 1：阿里 DoH
+        if (resolved == null) {
+            resolved = resolveDoH(domain, "https://223.5.5.5/dns-query")
+        }
+
+        // 终极兜底 2：系统原生
+        if (resolved == null) {
+            try {
+                SagerNet.underlyingNetwork!!.getAllByName(domain).apply {
+                    if (isNotEmpty()) {
+                        resolved = this[0].hostAddress
+                    }
+                }
+            } catch (ignored: java.net.UnknownHostException) {
+            }
+        }
+        return resolved
+    }
+
+    private fun resolveDoH(domain: String, url: String): String? {
+        val apiUrl = when {
+            url.contains("223.5.5.5") || url.contains("alidns") -> "https://223.5.5.5/resolve?name=$domain&type=1"
+            url.contains("dns.google") -> "https://dns.google/resolve?name=$domain&type=1"
+            url.contains("cloudflare") || url.contains("1.1.1.1") -> "https://cloudflare-dns.com/dns-query?name=$domain&type=1"
+            else -> "https://223.5.5.5/resolve?name=$domain&type=1"
+        }
+        try {
+            val conn = java.net.URL(apiUrl).openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.setRequestProperty("Accept", "application/dns-json")
+            if (conn.responseCode == 200) {
+                val json = org.json.JSONObject(conn.inputStream.bufferedReader().readText())
+                val answers = json.optJSONArray("Answer")
+                if (answers != null && answers.length() > 0) {
+                    for (i in 0 until answers.length()) {
+                        val ans = answers.getJSONObject(i)
+                        if (ans.getInt("type") == 1) {
+                            return ans.getString("data")
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Logs.w("DoH resolve failed: ${e.message}")
+        }
+        return null
+    }
+
+    private fun resolveUdpDns(domain: String, serverIp: String, port: Int): String? {
+        try {
+            val socket = java.net.DatagramSocket()
+            socket.soTimeout = 3000
+            val baos = java.io.ByteArrayOutputStream()
+            val dos = java.io.DataOutputStream(baos)
+
+            dos.writeShort(0x1234)
+            dos.writeShort(0x0100)
+            dos.writeShort(1)
+            dos.writeShort(0)
+            dos.writeShort(0)
+            dos.writeShort(0)
+
+            for (part in domain.split(".")) {
+                dos.writeByte(part.length)
+                dos.writeBytes(part)
+            }
+            dos.writeByte(0)
+            dos.writeShort(1)
+            dos.writeShort(1)
+
+            val reqData = baos.toByteArray()
+            val serverAddr = if (serverIp.isIpAddress()) {
+                java.net.InetAddress.getByName(serverIp)
+            } else {
+                java.net.InetAddress.getByName(serverIp)
+            }
+            val reqPacket = java.net.DatagramPacket(reqData, reqData.size, serverAddr, port)
+
+            socket.send(reqPacket)
+
+            val resData = ByteArray(512)
+            val resPacket = java.net.DatagramPacket(resData, resData.size)
+            socket.receive(resPacket)
+            socket.closeQuietly()
+
+            val dis = java.io.DataInputStream(java.io.ByteArrayInputStream(resData))
+            dis.readShort()
+            val flags = dis.readShort().toInt()
+            if ((flags and 0x000F) != 0) return null
+
+            val qdcount = dis.readShort().toInt()
+            val ancount = dis.readShort().toInt()
+            dis.readShort()
+            dis.readShort()
+
+            for (i in 0 until qdcount) {
+                while (true) {
+                    val len = dis.readByte().toInt() and 0xFF
+                    if (len == 0) break
+                    if ((len and 0xC0) == 0xC0) {
+                        dis.readByte()
+                        break
+                    } else {
+                        dis.skipBytes(len)
+                    }
+                }
+                dis.readShort()
+                dis.readShort()
+            }
+
+            for (i in 0 until ancount) {
+                val nameByte = dis.readByte().toInt() and 0xFF
+                if ((nameByte and 0xC0) == 0xC0) {
+                    dis.readByte()
+                } else {
+                    var len = nameByte
+                    while (len > 0) {
+                        dis.skipBytes(len)
+                        len = dis.readByte().toInt() and 0xFF
+                    }
+                }
+
+                val type = dis.readShort().toInt()
+                dis.readShort()
+                dis.readInt()
+                val rdlength = dis.readShort().toInt()
+
+                if (type == 1 && rdlength == 4) {
+                    val ipBytes = ByteArray(4)
+                    dis.readFully(ipBytes)
+                    return java.net.InetAddress.getByAddress(ipBytes).hostAddress
+                } else {
+                    dis.skipBytes(rdlength)
+                }
+            }
+        } catch (e: Exception) {
+            Logs.w("UDP DNS resolve failed: ${e.message}")
+        }
+        return null
     }
 
 }

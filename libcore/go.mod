@@ -87,6 +87,7 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
 	google.golang.org/grpc v1.73.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
@@ -94,7 +95,11 @@ replace github.com/matsuridayo/libneko => ../../libneko
 
 replace github.com/sagernet/sing-box => ../../sing-box
 
-replace github.com/sagernet/sing-vmess => github.com/starifly/sing-vmess v0.2.8-mod.1
+replace github.com/sagernet/sing-shadowsocks2 => ../../sing-shadowsocks2
+
+replace github.com/sagernet/sing-vmess => ../../sing-vmess
+
+replace github.com/anytls/sing-anytls => ../../sing-anytls-local
 
 // replace github.com/sagernet/sing-quic => github.com/matsuridayo/sing-quic v0.0.0-20241009042333-b49ce60d9b36
 // replace github.com/sagernet/sing-quic => ../../sing-quic

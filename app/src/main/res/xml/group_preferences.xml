@@ -40,6 +40,13 @@
         app:key="groupLandingProxy"
         app:title="@string/landing_proxy"
         app:useSimpleSummaryProvider="true" />
+    
+    <EditTextPreference
+        app:icon="@drawable/ic_baseline_manage_search_24"
+        app:key="groupCustomDns"
+        app:title="自定义直连 DNS (仅限此分组)"
+        app:summary="针对需要内网穿透或私有解析的机场节点"
+        app:useSimpleSummaryProvider="true" />
 
     <PreferenceCategory
         app:key="groupSubscription"

@@ -4770,6 +4770,8 @@ public class SingBoxOptions {
 
         public String idle_session_timeout;
 
+        public Integer min_idle_session;
+
     }
 
     public static class Outbound_SnellOptions extends Outbound {
@@ -4825,6 +4827,22 @@ public class SingBoxOptions {
 
         public Boolean reuse;
 
+    }
+    
+    public static class Outbound_XHttpOptions extends Outbound {
+        public String server;
+        public Integer server_port;
+
+        public String name;
+        public String password;
+
+        @SerializedName("node-id")
+        public String node_id;
+
+        public String detour;
+        public String bind_interface;
+        public Long connect_timeout;
+        public Boolean tcp_fast_open;
     }
 
 }

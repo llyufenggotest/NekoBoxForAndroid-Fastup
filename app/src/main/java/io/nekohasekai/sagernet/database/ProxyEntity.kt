@@ -10,6 +10,7 @@ import io.nekohasekai.sagernet.fmt.*
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.http.toUri
 import io.nekohasekai.sagernet.fmt.hysteria.*
+import io.nekohasekai.sagernet.fmt.xhttp.*
 import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean
 import io.nekohasekai.sagernet.fmt.mieru.buildMieruConfig
@@ -81,6 +82,7 @@ data class ProxyEntity(
     var nekoBean: NekoBean? = null,
     var configBean: ConfigBean? = null,
     var snellBean: SnellBean? = null,
+    var xhttpBean: XHttpBean? = null,
 ) : Serializable() {
 
     companion object {
@@ -103,6 +105,7 @@ data class ProxyEntity(
         const val TYPE_ANYTLS = 22
         const val TYPE_JUICITY = 23
         const val TYPE_SNELL = 24
+        const val TYPE_XHTTP = 26
 
         const val TYPE_CONFIG = 998
         const val TYPE_NEKO = 999
@@ -193,6 +196,7 @@ data class ProxyEntity(
             TYPE_NEKO -> nekoBean = KryoConverters.nekoDeserialize(byteArray)
             TYPE_CONFIG -> configBean = KryoConverters.configDeserialize(byteArray)
             TYPE_SNELL -> snellBean = KryoConverters.snellDeserialize(byteArray)
+            TYPE_XHTTP -> xhttpBean = KryoConverters.xhttpDeserialize(byteArray)
         }
     }
 
@@ -217,6 +221,7 @@ data class ProxyEntity(
         TYPE_NEKO -> nekoBean!!.displayType()
         TYPE_CONFIG -> configBean!!.displayType()
         TYPE_SNELL -> "Snell"
+        TYPE_XHTTP -> "XHTTP"
         else -> "Undefined type $type"
     }
 
@@ -245,6 +250,7 @@ data class ProxyEntity(
             TYPE_NEKO -> nekoBean
             TYPE_CONFIG -> configBean
             TYPE_SNELL -> snellBean
+            TYPE_XHTTP -> xhttpBean
             else -> error("Undefined type $type")
         } ?: error("Null ${displayType()} profile")
     }
@@ -437,6 +443,7 @@ data class ProxyEntity(
         chainBean = null
         configBean = null
         nekoBean = null
+        xhttpBean = null
 
         when (bean) {
             is SOCKSBean -> {
@@ -522,6 +529,11 @@ data class ProxyEntity(
             is SnellBean -> {
                 type = TYPE_SNELL
                 snellBean = bean
+            }
+
+            is XHttpBean -> {
+                type = TYPE_XHTTP
+                xhttpBean = bean
             }
 
             is ChainBean -> {

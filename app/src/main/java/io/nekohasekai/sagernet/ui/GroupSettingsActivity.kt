@@ -45,6 +45,7 @@ class GroupSettingsActivity(
 
     fun ProxyGroup.init() {
         DataStore.groupName = name ?: ""
+        DataStore.groupCustomDns = customDirectDns ?: "" // 🚀 读出数据到UI缓存
         DataStore.groupType = type
         DataStore.groupOrder = order
         DataStore.groupIsSelector = isSelector
@@ -68,6 +69,7 @@ class GroupSettingsActivity(
 
     fun ProxyGroup.serialize() {
         name = DataStore.groupName.takeIf { it.isNotBlank() } ?: "My group"
+        customDirectDns = DataStore.groupCustomDns // 🚀 从UI缓存写回数据库
         type = DataStore.groupType
         order = DataStore.groupOrder
         isSelector = DataStore.groupIsSelector
@@ -265,13 +267,10 @@ class GroupSettingsActivity(
                     DataStore.profileCacheStore.registerChangeListener(this@GroupSettingsActivity)
                 }
             }
-
         }
-
     }
 
     suspend fun saveAndExit() {
-
         val editingId = DataStore.editingId
         if (editingId == 0L) {
             val newGroup = GroupManager.createGroup(ProxyGroup().apply { serialize() })
@@ -292,9 +291,7 @@ class GroupSettingsActivity(
             }
             GroupManager.updateGroup(entity.apply { serialize() })
         }
-
         finish()
-
     }
 
     val child by lazy { supportFragmentManager.findFragmentById(R.id.settings) as MyPreferenceFragmentCompat }
@@ -350,7 +347,6 @@ class GroupSettingsActivity(
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
             super.onViewCreated(view, savedInstanceState)
-
             ViewCompat.setOnApplyWindowInsetsListener(listView, ListListener)
         }
 
@@ -376,11 +372,9 @@ class GroupSettingsActivity(
 
             else -> false
         }
-
     }
 
     object PasswordSummaryProvider : Preference.SummaryProvider<EditTextPreference> {
-
         override fun provideSummary(preference: EditTextPreference): CharSequence {
             val text = preference.text
             return if (text.isNullOrBlank()) {
@@ -389,7 +383,6 @@ class GroupSettingsActivity(
                 "\u2022".repeat(text.length)
             }
         }
-
     }
 
     val selectProfileForAddFront = registerForActivityResult(
@@ -419,5 +412,4 @@ class GroupSettingsActivity(
             }
         }
     }
-
 }

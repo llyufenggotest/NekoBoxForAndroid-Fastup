@@ -14,6 +14,7 @@ import io.nekohasekai.sagernet.fmt.shadowsocksr.ShadowsocksRBean
 import io.nekohasekai.sagernet.fmt.shadowsocksr.parseShadowsocksR
 import io.nekohasekai.sagernet.fmt.snell.parseClashSnell
 import io.nekohasekai.sagernet.fmt.socks.SOCKSBean
+import io.nekohasekai.sagernet.fmt.xhttp.XHttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.trojan_go.parseTrojanGo
 import io.nekohasekai.sagernet.fmt.tuic.TuicBean
@@ -266,6 +267,16 @@ object RawUpdater : GroupUpdater() {
                     // Note: YAML numbers parsed as "Long"
 
                     when (proxy["type"] as String) {
+                        "xhttp" -> {
+                            proxies.add(XHttpBean().apply {
+                                serverAddress = proxy["server"]?.toString() ?: ""
+                                serverPort = proxy["port"]?.toString()?.toIntOrNull() ?: 0
+                                name = proxy["name"]?.toString() ?: ""
+                                password = proxy["password"]?.toString() ?: ""
+                                nodeId = proxy["node-id"]?.toString() ?: ""
+                            })
+                        }
+                        
                         "socks5" -> {
                             proxies.add(SOCKSBean().apply {
                                 serverAddress = proxy["server"] as String
@@ -636,7 +647,7 @@ object RawUpdater : GroupUpdater() {
                             proxies.add(bean)
                         }
 
-                        "anytls" -> {
+                         "anytls" -> {
                             val bean = AnyTLSBean()
                             for (opt in proxy) {
                                 if (opt.value == null) continue
@@ -660,6 +671,14 @@ object RawUpdater : GroupUpdater() {
                                         opt.value.toString()
                                     "reality-short-id", "short-id" -> bean.realityShortId =
                                         opt.value.toString()
+                                        
+                                    // 🚀 新增解析这三项配置
+                                    "min-idle-session" -> bean.minIdleSession = 
+                                        opt.value.toString().toIntOrNull()
+                                    "idle-session-check-interval" -> bean.idleSessionCheckInterval = 
+                                        opt.value.toString().toIntOrNull()
+                                    "idle-session-timeout" -> bean.idleSessionTimeout = 
+                                        opt.value.toString().toIntOrNull()
                                 }
                             }
                             proxies.add(bean)

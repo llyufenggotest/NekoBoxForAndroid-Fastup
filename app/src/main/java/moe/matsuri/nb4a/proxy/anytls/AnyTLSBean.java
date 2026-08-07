@@ -1,12 +1,9 @@
 package moe.matsuri.nb4a.proxy.anytls;
 
 import androidx.annotation.NonNull;
-
 import com.esotericsoftware.kryo.io.ByteBufferInput;
 import com.esotericsoftware.kryo.io.ByteBufferOutput;
-
 import org.jetbrains.annotations.NotNull;
-
 import io.nekohasekai.sagernet.fmt.AbstractBean;
 import io.nekohasekai.sagernet.fmt.KryoConverters;
 
@@ -24,19 +21,21 @@ public class AnyTLSBean extends AbstractBean {
             return new AnyTLSBean[size];
         }
     };
+    
     public String password;
     public String sni;
     public String alpn;
     public String certificates;
     public String utlsFingerprint;
     public Boolean allowInsecure;
-    // In sing-box, this seemed can be used with REALITY.
-    // But even mihomo appended many options, it still not provide REALITY.
-    // https://github.com/anytls/anytls-go/blob/4636d90462fa21a510420512d7706a9acf69c7b9/docs/faq.md?plain=1#L25-L37
-
     public String echConfig;
     public String realityPubKey;
     public String realityShortId;
+
+    // 🚀 新增的连接池参数
+    public Integer minIdleSession;
+    public Integer idleSessionCheckInterval;
+    public Integer idleSessionTimeout;
 
     @Override
     public void initializeDefaultValues() {
@@ -54,7 +53,7 @@ public class AnyTLSBean extends AbstractBean {
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(1);
+        output.writeInt(2); // 🚀 升级版本号到 2
         super.serialize(output);
         output.writeString(password);
         output.writeString(sni);
@@ -65,6 +64,11 @@ public class AnyTLSBean extends AbstractBean {
         output.writeString(echConfig);
         output.writeString(realityPubKey);
         output.writeString(realityShortId);
+        
+        // 🚀 保存新参数
+        output.writeString(minIdleSession != null ? String.valueOf(minIdleSession) : "");
+        output.writeString(idleSessionCheckInterval != null ? String.valueOf(idleSessionCheckInterval) : "");
+        output.writeString(idleSessionTimeout != null ? String.valueOf(idleSessionTimeout) : "");
     }
 
     @Override
@@ -84,6 +88,20 @@ public class AnyTLSBean extends AbstractBean {
         } else {
             realityPubKey = "";
             realityShortId = "";
+        }
+        
+        // 🚀 读取新参数 (兼顾旧版)
+        if (version >= 2) {
+            String mis = input.readString();
+            minIdleSession = mis.isEmpty() ? null : Integer.parseInt(mis);
+            String isci = input.readString();
+            idleSessionCheckInterval = isci.isEmpty() ? null : Integer.parseInt(isci);
+            String ist = input.readString();
+            idleSessionTimeout = ist.isEmpty() ? null : Integer.parseInt(ist);
+        } else {
+            minIdleSession = null;
+            idleSessionCheckInterval = null;
+            idleSessionTimeout = null;
         }
     }
 
