@@ -128,6 +128,21 @@ import kotlin.collections.set
 import androidx.appcompat.app.AlertDialog
 import io.nekohasekai.sagernet.database.SubscriptionBean
 
+internal fun <T> selectProfilesForQuery(
+    query: String,
+    currentGroupId: Long,
+    allProfiles: List<T>,
+    groupId: (T) -> Long,
+    matches: (T, String) -> Boolean,
+): List<T> {
+    val normalized = query.trim()
+    return if (normalized.isEmpty()) {
+        allProfiles.filter { groupId(it) == currentGroupId }
+    } else {
+        allProfiles.filter { matches(it, normalized) }
+    }
+}
+
 class ConfigurationFragment @JvmOverloads constructor(
     val select: Boolean = false, val selectedItem: ProxyEntity? = null, val titleRes: Int = 0
 ) : ToolbarFragment(R.layout.layout_group_list),
@@ -174,8 +189,10 @@ class ConfigurationFragment @JvmOverloads constructor(
     }
 
     override fun onQueryTextChange(query: String): Boolean {
-        getCurrentGroupFragment()?.adapter?.filter(query)
-        return false
+        getCurrentGroupFragment()?.adapter?.filterGlobal(query)
+        tabLayout.isGone = query.isNotBlank() || adapter.groupList.size < 2
+        groupPager.isUserInputEnabled = query.isBlank()
+        return true
     }
 
     override fun onQueryTextSubmit(query: String): Boolean = false
@@ -1184,6 +1201,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     recyclerView: RecyclerView,
                     viewHolder: RecyclerView.ViewHolder
                 ): Int {
+                    if (adapter?.isGlobalSearch == true) return makeMovementFlags(0, 0)
                     val dragFlags = if (DataStore.groupLayoutMode == 1) {
                         ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
                     } else {
@@ -1203,7 +1221,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     recyclerView: RecyclerView,
                     viewHolder: RecyclerView.ViewHolder,
                 ): Int {
-                    return if (isEnabled) {
+                    return if (isEnabled && adapter?.isGlobalSearch != true) {
                         if (DataStore.groupLayoutMode == 1) {
                             ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
                         } else {
@@ -1403,6 +1421,11 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             var configurationIdList: MutableList<Long> = mutableListOf()
             val configurationList = HashMap<Long, ProxyEntity>()
+            private val groupTypes = HashMap<Long, Int>()
+            private var searchQuery = ""
+            private val searchVersion = AtomicInteger(0)
+            val isGlobalSearch: Boolean
+                get() = searchQuery.isNotBlank()
 
             private fun getItem(profileId: Long): ProxyEntity {
                 var profile = configurationList[profileId]
@@ -1416,6 +1439,10 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             private fun getItemAt(index: Int) = getItem(configurationIdList[index])
+
+            private fun isSubscription(profile: ProxyEntity): Boolean {
+                return groupTypes[profile.groupId] == GroupType.SUBSCRIPTION
+            }
 
             private fun hasMiddleRow(p: ProxyEntity): Boolean {
                 val showTraffic = p.rx + p.tx != 0L
@@ -1464,19 +1491,24 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             private val updated = HashSet<ProxyEntity>()
 
-            fun filter(name: String) {
-                if (name.isEmpty()) {
-                    reloadProfiles()
-                    return
+            fun filterGlobal(name: String) {
+                searchQuery = name.trim()
+                val version = searchVersion.incrementAndGet()
+                runOnDefaultDispatcher {
+                    val query = searchQuery
+                    val profiles = selectProfilesForQuery(
+                        query = query,
+                        currentGroupId = proxyGroup.id,
+                        allProfiles = SagerDatabase.proxyDao.getAll(),
+                        groupId = ProxyEntity::groupId,
+                    ) { profile, keyword ->
+                        profile.displayName().contains(keyword, ignoreCase = true) ||
+                            profile.displayType().contains(keyword, ignoreCase = true) ||
+                            profile.displayAddress().contains(keyword, ignoreCase = true)
+                    }
+                    if (version != searchVersion.get()) return@runOnDefaultDispatcher
+                    applyProfiles(profiles, scrollToSelected = query.isEmpty())
                 }
-                configurationIdList.clear()
-                val lower = name.lowercase()
-                configurationIdList.addAll(configurationList.filter {
-                    it.value.displayName().lowercase().contains(lower) ||
-                            it.value.displayType().lowercase().contains(lower) ||
-                            it.value.displayAddress().lowercase().contains(lower)
-                }.keys)
-                notifyDataSetChanged()
             }
 
             fun move(from: Int, to: Int) {
@@ -1558,7 +1590,12 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             override suspend fun onAdd(profile: ProxyEntity) {
-                if (profile.groupId != proxyGroup.id) return
+                if (!isGlobalSearch && profile.groupId != proxyGroup.id) return
+
+                if (isGlobalSearch) {
+                    filterGlobal(searchQuery)
+                    return
+                }
 
                 configurationListView.post {
                     if (::undoManager.isInitialized) {
@@ -1572,7 +1609,11 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             override suspend fun onUpdated(profile: ProxyEntity, noTraffic: Boolean) {
-                if (profile.groupId != proxyGroup.id) return
+                if (!isGlobalSearch && profile.groupId != proxyGroup.id) return
+                if (isGlobalSearch) {
+                    filterGlobal(searchQuery)
+                    return
+                }
                 val index = configurationIdList.indexOf(profile.id)
                 if (index < 0) return
                 configurationListView.post {
@@ -1615,7 +1656,7 @@ class ConfigurationFragment @JvmOverloads constructor(
             }
 
             override suspend fun onRemoved(groupId: Long, profileId: Long) {
-                if (groupId != proxyGroup.id) return
+                if (!isGlobalSearch && groupId != proxyGroup.id) return
                 val index = configurationIdList.indexOf(profileId)
                 if (index < 0) return
 
@@ -1626,22 +1667,36 @@ class ConfigurationFragment @JvmOverloads constructor(
                 }
             }
 
-            override suspend fun groupAdd(group: ProxyGroup) = Unit
-            override suspend fun groupRemoved(groupId: Long) = Unit
+            override suspend fun groupAdd(group: ProxyGroup) {
+                if (isGlobalSearch) filterGlobal(searchQuery)
+            }
+
+            override suspend fun groupRemoved(groupId: Long) {
+                if (isGlobalSearch) filterGlobal(searchQuery)
+            }
 
             override suspend fun groupUpdated(group: ProxyGroup) {
-                if (group.id != proxyGroup.id) return
-                proxyGroup = group
-                reloadProfiles()
+                if (group.id == proxyGroup.id) {
+                    proxyGroup = group
+                } else if (!isGlobalSearch) {
+                    return
+                }
+                if (isGlobalSearch) filterGlobal(searchQuery) else reloadProfiles()
             }
 
             override suspend fun groupUpdated(groupId: Long) {
-                if (groupId != proxyGroup.id) return
-                proxyGroup = SagerDatabase.groupDao.getById(groupId)!!
-                reloadProfiles()
+                if (groupId == proxyGroup.id) {
+                    proxyGroup = SagerDatabase.groupDao.getById(groupId)!!
+                }
+                if (isGlobalSearch) filterGlobal(searchQuery)
+                else if (groupId == proxyGroup.id) reloadProfiles()
             }
 
             fun reloadProfiles() {
+                if (isGlobalSearch) {
+                    filterGlobal(searchQuery)
+                    return
+                }
                 var newProfiles = SagerDatabase.proxyDao.getByGroup(proxyGroup.id)
                 when (proxyGroup.order) {
                     GroupOrder.BY_NAME -> {
@@ -1655,13 +1710,24 @@ class ConfigurationFragment @JvmOverloads constructor(
                     }
                 }
 
+                applyProfiles(newProfiles, scrollToSelected = true)
+            }
+
+            private fun applyProfiles(
+                newProfiles: List<ProxyEntity>,
+                scrollToSelected: Boolean,
+            ) {
+                groupTypes.clear()
+                groupTypes.putAll(
+                    SagerDatabase.groupDao.allGroups().associate { it.id to it.type }
+                )
                 configurationList.clear()
                 configurationList.putAll(newProfiles.associateBy { it.id })
                 val newProfileIds = newProfiles.map { it.id }
 
                 var selectedProfileIndex = -1
 
-                if (selected) {
+                if (selected && scrollToSelected) {
                     val selectedProxy = selectedItem?.id ?: DataStore.selectedProxy
                     selectedProfileIndex = newProfileIds.indexOf(selectedProxy)
                 }
@@ -1671,9 +1737,9 @@ class ConfigurationFragment @JvmOverloads constructor(
                     configurationIdList.addAll(newProfileIds)
                     notifyDataSetChanged()
 
-                    if (selectedProfileIndex != -1) {
+                    if (scrollToSelected && selectedProfileIndex != -1) {
                         configurationListView.scrollTo(selectedProfileIndex, true)
-                    } else if (newProfiles.isNotEmpty()) {
+                    } else if (scrollToSelected && newProfiles.isNotEmpty()) {
                         configurationListView.scrollTo(0, true)
                     }
 
@@ -1866,7 +1932,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     try {
                         it.context.startActivity(
                             proxyEntity.settingIntent(
-                                it.context, proxyGroup.type == GroupType.SUBSCRIPTION
+                                it.context, isSubscription(proxyEntity)
                             )
                         )
                     } catch (e: Exception) {
@@ -1907,7 +1973,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                                 try {
                                     it.context.startActivity(
                                         proxyEntity.settingIntent(
-                                            it.context, proxyGroup.type == GroupType.SUBSCRIPTION
+                                            it.context, isSubscription(proxyEntity)
                                         )
                                     )
                                 } catch (e: Exception) {
