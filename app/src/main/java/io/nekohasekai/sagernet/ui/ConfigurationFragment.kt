@@ -1440,7 +1440,7 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             private fun getItemAt(index: Int) = getItem(configurationIdList[index])
 
-            private fun isSubscription(profile: ProxyEntity): Boolean {
+            fun isSubscription(profile: ProxyEntity): Boolean {
                 return groupTypes[profile.groupId] == GroupType.SUBSCRIPTION
             }
 
@@ -1507,7 +1507,18 @@ class ConfigurationFragment @JvmOverloads constructor(
                             profile.displayAddress().contains(keyword, ignoreCase = true)
                     }
                     if (version != searchVersion.get()) return@runOnDefaultDispatcher
-                    applyProfiles(profiles, scrollToSelected = query.isEmpty())
+                    val orderedProfiles = if (query.isEmpty()) {
+                        when (proxyGroup.order) {
+                            GroupOrder.BY_NAME -> profiles.sortedBy { it.displayName() }
+                            GroupOrder.BY_DELAY -> profiles.sortedBy {
+                                if (it.status == 1) it.ping else 114514
+                            }
+                            else -> profiles.sortedBy { it.userOrder }
+                        }
+                    } else {
+                        profiles
+                    }
+                    applyProfiles(orderedProfiles, scrollToSelected = query.isEmpty())
                 }
             }
 
@@ -1932,7 +1943,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                     try {
                         it.context.startActivity(
                             proxyEntity.settingIntent(
-                                it.context, isSubscription(proxyEntity)
+                                it.context, adapter?.isSubscription(proxyEntity) == true
                             )
                         )
                     } catch (e: Exception) {
@@ -1973,7 +1984,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                                 try {
                                     it.context.startActivity(
                                         proxyEntity.settingIntent(
-                                            it.context, isSubscription(proxyEntity)
+                                            it.context, adapter?.isSubscription(proxyEntity) == true
                                         )
                                     )
                                 } catch (e: Exception) {
