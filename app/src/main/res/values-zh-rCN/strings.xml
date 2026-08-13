@@ -16,6 +16,8 @@
     <string name="quick_disable">禁用</string>
     <!-- group -->
     <string name="group_name">分组名</string>
+    <string name="group_pin">置顶分组</string>
+    <string name="group_pinned">已置顶分组</string>
     <string name="group_update">更新</string>
     <string name="group_subscription_link">订阅链接</string>
     <string name="group_name_required">需要分组名称</string>

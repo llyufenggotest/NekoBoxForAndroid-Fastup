@@ -27,10 +27,27 @@ import io.nekohasekai.sagernet.widget.ListListener
 import io.nekohasekai.sagernet.widget.QRCodeDialog
 import io.nekohasekai.sagernet.widget.UndoSnackbarManager
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import moe.matsuri.nb4a.utils.Util
 import moe.matsuri.nb4a.utils.toBytesString
 import java.lang.NumberFormatException
 import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
+
+internal fun <T> moveItemToFrontAndReindex(
+    items: MutableList<T>,
+    fromIndex: Int,
+    setOrder: (T, Long) -> Unit,
+) {
+    if (fromIndex !in items.indices) return
+    if (fromIndex > 0) {
+        items.add(0, items.removeAt(fromIndex))
+    }
+    items.forEachIndexed { index, item ->
+        setOrder(item, (index + 1).toLong())
+    }
+}
 
 class GroupFragment : ToolbarFragment(R.layout.layout_group),
     Toolbar.OnMenuItemClickListener {
@@ -199,6 +216,8 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         }
 
         private val updated = HashSet<ProxyGroup>()
+        private val pinPersistVersion = AtomicInteger(0)
+        private val pinPersistMutex = Mutex()
 
         fun move(from: Int, to: Int) {
             val first = groupList[from]
@@ -223,6 +242,29 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         fun commitMove() = runOnDefaultDispatcher {
             updated.forEach { SagerDatabase.groupDao.updateGroup(it) }
             updated.clear()
+        }
+
+        fun pinToTop(groupId: Long) {
+            val fromIndex = groupList.indexOfFirst { it.id == groupId }
+            if (fromIndex < 0) return
+
+            moveItemToFrontAndReindex(groupList, fromIndex) { group, order ->
+                group.userOrder = order
+            }
+            if (fromIndex > 0) {
+                notifyItemMoved(fromIndex, 0)
+                notifyItemRangeChanged(0, fromIndex + 1)
+                groupListView.scrollToPosition(0)
+            }
+            val orderedGroups = groupList.toList()
+            val version = pinPersistVersion.incrementAndGet()
+            runOnDefaultDispatcher {
+                pinPersistMutex.withLock {
+                    if (version == pinPersistVersion.get()) {
+                        SagerDatabase.groupDao.updateGroups(orderedGroups)
+                    }
+                }
+            }
         }
 
         fun remove(index: Int) {
@@ -322,6 +364,7 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
         val groupStatus = binding.groupStatus
         val groupTraffic = binding.groupTraffic
         val groupUser = binding.groupUser
+        val pinButton = binding.pin
         val editButton = binding.edit
         val optionsButton = binding.options
         val updateButton = binding.groupUpdate
@@ -386,6 +429,11 @@ class GroupFragment : ToolbarFragment(R.layout.layout_group),
             editButton.isGone = proxyGroup.ungrouped
             updateButton.isInvisible = proxyGroup.type != GroupType.SUBSCRIPTION
             groupName.text = proxyGroup.displayName()
+
+            pinButton.setOnClickListener {
+                groupAdapter.pinToTop(proxyGroup.id)
+                activity.snackbar(R.string.group_pinned).show()
+            }
 
             editButton.setOnClickListener {
                 startActivity(Intent(it.context, GroupSettingsActivity::class.java).apply {
