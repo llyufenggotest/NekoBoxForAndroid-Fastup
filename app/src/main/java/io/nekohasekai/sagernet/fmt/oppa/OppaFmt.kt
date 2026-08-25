@@ -1,12 +1,11 @@
 package io.nekohasekai.sagernet.fmt.oppa
 
-import io.nekohasekai.sagernet.ktx.linkBuilder
+import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.database.DataStore
 import moe.matsuri.nb4a.SingBoxOptions
-import io.nekohasekai.sagernet.ktx.toLink
-import io.nekohasekai.sagernet.ktx.urlSafe
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import org.json.JSONObject
+import java.net.URI
+import java.net.URLDecoder
+import java.net.URLEncoder
 import java.util.Base64
 
 data class OppaProvider(
@@ -23,12 +22,13 @@ fun parseOppaProvider(link: String): OppaProvider {
     val decoded = runCatching {
         Base64.getUrlDecoder().decode(payload.padEnd((payload.length + 3) / 4 * 4, '='))
     }.getOrElse { throw IllegalArgumentException("invalid Oppa provider encoding", it) }
-    val json = runCatching { JSONObject(String(decoded, Charsets.UTF_8)) }
+    val json = runCatching { JsonParser.parseString(String(decoded, Charsets.UTF_8)).asJsonObject }
         .getOrElse { throw IllegalArgumentException("invalid Oppa provider JSON", it) }
-    val name = json.optString("name").trim()
-    val apiToken = json.optString("apiToken").trim()
-    val apiEndpoint = json.optString("apiEndPoint").trim().removePrefix("https://").trimEnd('/')
-    val encryptionKey = json.optString("encryptionKey").trim()
+    fun string(name: String) = json.get(name)?.takeUnless { it.isJsonNull }?.asString?.trim().orEmpty()
+    val name = string("name")
+    val apiToken = string("apiToken")
+    val apiEndpoint = string("apiEndPoint").removePrefix("https://").trimEnd('/')
+    val encryptionKey = string("encryptionKey")
     require(name.isNotEmpty()) { "missing Oppa provider name" }
     require(apiToken.isNotEmpty()) { "missing Oppa provider token" }
     require(apiEndpoint.isNotEmpty()) { "missing Oppa provider endpoint" }
@@ -38,19 +38,22 @@ fun parseOppaProvider(link: String): OppaProvider {
 
 fun parseOppaNode(url: String): OppaBean {
     require(url.startsWith("oppa://")) { "invalid Oppa node link" }
-    val link = url.replaceFirst("oppa://", "https://").toHttpUrlOrNull()
-        ?: throw IllegalArgumentException("invalid Oppa node link")
-    val password = link.username
-    require(password.isNotEmpty() && password.toByteArray(Charsets.UTF_8).size <= 4096) { "Oppa password must contain 1–4096 UTF-8 bytes" }
+    val uri = runCatching { URI(url) }.getOrElse { throw IllegalArgumentException("invalid Oppa node link", it) }
+    require(uri.scheme.equals("oppa", true) && !uri.host.isNullOrBlank() && uri.port in 1..65535) {
+        "invalid Oppa node link"
+    }
+    val password = percentDecode(uri.rawUserInfo.orEmpty())
+    requireValidPassword(password)
+    val query = parseQuery(uri.rawQuery)
     return OppaBean().apply {
-        serverAddress = link.host
-        serverPort = link.port
+        serverAddress = uri.host.trim('[', ']')
+        serverPort = uri.port
         this.password = password
-        preConnect = link.queryParameter("preconnect")?.toIntOrNull()?.coerceIn(0, 64) ?: 8
-        sni = link.queryParameter("sni") ?: ""
-        allowInsecure = link.queryParameter("insecure")?.let { it == "1" || it.equals("true", true) } ?: false
-        certificatePinSHA256 = link.queryParameter("pin_sha256") ?: ""
-        name = link.fragment ?: ""
+        preConnect = query["preconnect"]?.toIntOrNull()?.coerceIn(0, 64) ?: 8
+        sni = query["sni"].orEmpty()
+        allowInsecure = query["insecure"]?.let { it == "1" || it.equals("true", true) } ?: false
+        certificatePinSHA256 = query["pin_sha256"].orEmpty()
+        name = percentDecode(uri.rawFragment.orEmpty())
         initializeDefaultValues()
     }
 }
@@ -73,15 +76,43 @@ fun buildSingBoxOutboundOppaBean(bean: OppaBean): SingBoxOptions.Outbound_OppaOp
 }
 
 fun OppaBean.toUri(): String {
-    require(password.isNotEmpty() && password.toByteArray(Charsets.UTF_8).size <= 4096) { "Oppa password must contain 1–4096 UTF-8 bytes" }
-    val builder = linkBuilder()
-        .host(serverAddress)
-        .port(serverPort)
-        .username(password)
-    if (preConnect != 8) builder.addQueryParameter("preconnect", preConnect.toString())
-    if (sni.isNotBlank()) builder.addQueryParameter("sni", sni)
-    if (allowInsecure) builder.addQueryParameter("insecure", "1")
-    if (certificatePinSHA256.isNotBlank()) builder.addQueryParameter("pin_sha256", certificatePinSHA256)
-    if (name.isNotBlank()) builder.encodedFragment(name.urlSafe())
-    return builder.toLink("oppa")
+    requireValidPassword(password)
+    val host = if (serverAddress.contains(':')) "[$serverAddress]" else serverAddress
+    val query = buildList {
+        if (preConnect != 8) add("preconnect=${percentEncode(preConnect.toString())}")
+        if (sni.isNotBlank()) add("sni=${percentEncode(sni)}")
+        if (allowInsecure) add("insecure=1")
+        if (certificatePinSHA256.isNotBlank()) add("pin_sha256=${percentEncode(certificatePinSHA256)}")
+    }.joinToString("&")
+    return buildString {
+        append("oppa://")
+        append(percentEncode(password))
+        append('@')
+        append(host)
+        append(':')
+        append(serverPort)
+        if (query.isNotEmpty()) append('?').append(query)
+        if (name.isNotBlank()) append('#').append(percentEncode(name))
+    }
 }
+
+private fun requireValidPassword(password: String) {
+    require(password.isNotEmpty() && password.toByteArray(Charsets.UTF_8).size <= 4096) {
+        "Oppa password must contain 1–4096 UTF-8 bytes"
+    }
+}
+
+private fun parseQuery(rawQuery: String?): Map<String, String> {
+    if (rawQuery.isNullOrBlank()) return emptyMap()
+    return rawQuery.split('&').mapNotNull { part ->
+        val pieces = part.split('=', limit = 2)
+        if (pieces.isEmpty() || pieces[0].isEmpty()) null
+        else percentDecode(pieces[0]) to percentDecode(pieces.getOrElse(1) { "" })
+    }.toMap()
+}
+
+private fun percentEncode(value: String): String =
+    URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")
+
+private fun percentDecode(value: String): String =
+    URLDecoder.decode(value.replace("+", "%2B"), Charsets.UTF_8.name())

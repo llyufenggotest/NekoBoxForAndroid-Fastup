@@ -65,6 +65,21 @@ class OppaFmtTest {
     }
 
     @Test
+    fun percentEncodedFieldsRoundTrip() {
+        val bean = OppaBean().apply {
+            serverAddress = "node.example"
+            serverPort = 443
+            password = "future@token+with space"
+            sni = "tls.example"
+            name = "中文 Oppa"
+        }
+        val parsed = parseOppaNode(bean.toUri())
+        assertEquals(bean.password, parsed.password)
+        assertEquals(bean.name, parsed.name)
+        assertEquals(bean.sni, parsed.sni)
+    }
+
+    @Test
     fun variableLengthNodePasswordIsPreserved() {
         val parsed = parseOppaNode("oppa://future-token@node.example:443#future")
         assertEquals("future-token", parsed.password)
