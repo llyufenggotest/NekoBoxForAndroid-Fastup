@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">NekoBox</string>
-    <string name="app_name_long" translatable="false">NekoBox for Android</string>
+    <string name="app_name" translatable="false">NekoBoxF</string>
+    <string name="app_name_long" translatable="false">NekoBoxF for Android</string>
     <string name="app_desc">مجموعه ابزار جامع پراکسی برای اندروید، نوشته‌شده با کاتلین.</string>
     <string name="project">پروژه</string>
     <string name="github">کد منبع</string>
@@ -53,6 +53,10 @@
     <string name="service_mode_proxy">فقط به حالت پراکسی</string>
     <string name="service_mode_vpn" translatable="false">VPN</string>
     <string name="port_proxy">پورت پراکسی</string>
+    <string name="local_proxy_settings">تنظیمات پراکسی محلی</string>
+    <string name="proxy_username">نام کاربری پراکسی</string>
+    <string name="proxy_password">رمز عبور پراکسی</string>
+    <string name="port_out_of_range">محدوده پورت باید 1 تا 65535 باشد</string>
     <string name="port_http">پورت پراکسی HTTP</string>
     <string name="port_transproxy">پورت Transproxy</string>
     <string name="cag_route">تنظیمات مسیردهی</string>
@@ -86,11 +90,15 @@
     <string name="cag_dns">تنظیمات DNs</string>
     <string name="remote_dns">DNS ریموت</string>
     <string name="direct_dns">DNS مستقیم</string>
+    <string name="server_dns">DNS سرور سفارشی</string>
+    <string name="server_dns_subscription_sum">DNS اختیاری که فقط برای حل دامنه‌های سرور در این اشتراک استفاده می‌شود. اگر خالی باشد از رفتار پیش‌فرض استفاده می‌شود. https://، tls://، quic:// یا host[:port] پشتیبانی می‌شود.</string>
+    <string name="server_dns_invalid">DNS سرور سفارشی نامعتبر است. از https://، tls://، quic:// یا host[:port] استفاده کنید، یا آن را خالی بگذارید.</string>
     <string name="enable_dns_routing">فعال‌کردن مسیریابی DNS</string>
     <string name="dns_routing_message">بررسی دامنه‌ها در دورزدن مسیرها با DNS مستقیم. احتمال افشای نشانی DNS وجود دارد.</string>
     <string name="enable_fakedns">فعال کردن FakeDNS</string>
     <string name="fakedns_message">ممکن است نیاز باشد که برنامه‌های دیگر را برای اتصال مجدد، دوباره راه‌اندازی کنید.</string>
     <string name="dns_hosts">بازنویسی دامنه</string>
+    <string name="dns_hosts_dialog_message">در هر خط یک مورد. خطوطی که با # شروع می‌شوند نظر هستند. مثال:\nexample.com 1.1.1.1\nwww.example.com 1.1.1.1 1.1.1.2</string>
     <string name="port_local_dns">پورت DNS محلی</string>
     <string name="require_transproxy">فعال کردن Transproxy ورودی</string>
     <string name="transproxy_mode">حالت Transproxy</string>
@@ -326,6 +334,8 @@
     <string name="connection_test_timeout_error">بدون پاسخ</string>
     <string name="append_http_proxy">پراکسی HTTP را به VPN اضافه کنید</string>
     <string name="append_http_proxy_sum">پروکسی HTTP مستقیماً از (مرورگر/برخی برنامه‌های پشتیبانی‌شده) بدون استفاده از دستگاه NIC مجازی (نسخه اندروید بالاتر از 10) استفاده می‌شود.</string>
+    <string name="http_proxy_bypass">فهرست دور زدن پروکسی HTTP</string>
+    <string name="http_proxy_bypass_dialog_message">در هر خط یک مورد. خطوطی که با # شروع می‌شوند نظر هستند. مثال: *zhihu.com</string>
     <string name="append_http_proxy_security_title">اطلاعیه امنیتی</string>
     <string name="append_http_proxy_security_message">پس از فعال‌سازی، برنامه‌های دیگر در این دستگاه می‌توانند مستقیماً از پورت پروکسی محلی استفاده کنند.\n\nتوصیه: تنها در صورتی که به تمام برنامه‌های نصب‌شده اعتماد دارید، این گزینه را فعال کنید.</string>
     <string name="enable_anyway">همچنان فعال کن</string>
@@ -438,6 +448,8 @@
     <string name="warp_generate">ایجاد پیکربندی</string>
     <string name="generating">در حال ایجاد...</string>
     <string name="tun_implementation">پیاده‌سازی TUN</string>
+    <string name="enable_hev_tun">فعال‌سازی Hev TUN</string>
+    <string name="enable_hev_tun_summary">ایجاد دستگاه TUN با hev-socks5-tunnel</string>
     <string name="destination_override">بازنویسی مقصد</string>
     <string name="destination_override_summary">از دامنه ردیابی‌شده برای بازنویسی آدرس مقصد استفاده کنید، نه فقط برای مسیریابی.</string>
     <string name="resolve_destination">بررسی مقصد</string>
@@ -537,7 +549,10 @@
     <string name="layout">چیدمان</string>
     <string name="layout_single_column">تک‌ستونه</string>
     <string name="layout_double_column">دوستونه</string>
-    <string name="sort_and_layout">مرتب‌سازی و چیدمان</string>
+    <string name="sort_and_layout">مرتب‌سازی و ظاهر</string>
+    <string name="card_style">کارت</string>
+    <string name="card_style_classic">کلاسیک</string>
+    <string name="card_style_stroke">حاشیه</string>
     <string name="kcp_seed">mKCP Seed</string>
     <string name="kcp_header_type">نوع هدر</string>
     <string name="kcp_mtu">mKCP MTU</string>
@@ -629,11 +644,15 @@
     <string name="app_list_permission_denied">خواندن برنامه‌های نصب‌شده ممکن نیست.\nاین معمولاً به این دلیل است که سیستم دسترسی خواندن برنامه‌ها را محدود کرده است.\nلطفاً در تنظیمات سیستم دسترسی بدهید.</string>
     <string name="open_app_settings">باز کردن تنظیمات سیستم</string>
     <string name="action_snell">Snell</string>
-    <string name="snell_psk">کلید</string>
+    <string name="snell_psk">کلید از پیش مشترک</string>
+    <string name="snell_userkey">کلید کاربر</string>
     <string name="snell_version">نسخه</string>
     <string name="snell_network">پروتکل</string>
     <string name="snell_obfs_mode">حالت Obfs</string>
     <string name="snell_obfs_host">میزبان Obfs</string>
+    <string name="snell_mode">حالت</string>
     <string name="snell_reuse">استفادهٔ مجدد</string>
-    <string name="snell_reuse_summary">فقط v4/v5</string>
+    <string name="snell_reuse_summary">فقط v4-v6</string>
+    <string name="snell_quic_proxy">حالت QUIC Proxy</string>
+    <string name="snell_quic_proxy_summary">فقط v6: سازگاری با QUIC Proxy قدیمی v5</string>
 </resources>

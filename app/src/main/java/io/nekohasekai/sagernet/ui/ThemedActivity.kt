@@ -36,14 +36,16 @@ abstract class ThemedActivity : AppCompatActivity {
         super.onCreate(savedInstanceState)
 
         uiMode = resources.configuration.uiMode
-        
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowCompat.setDecorFitsSystemWindows(window, false)
-            
+
+            val isNight = (uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
             val insetController = WindowCompat.getInsetsController(window, window.decorView)
-            insetController.isAppearanceLightNavigationBars = !Theme.usingNightMode()
-            insetController.isAppearanceLightStatusBars = 
-                if (DataStore.appTheme == Theme.BLACK) !Theme.usingNightMode() else false
+            insetController.isAppearanceLightNavigationBars = false
+            insetController.isAppearanceLightStatusBars =
+                if (DataStore.appTheme == Theme.BLACK) !isNight else false
         }
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content)) { _, insets ->

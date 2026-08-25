@@ -16,6 +16,7 @@ import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.ui.VpnRequestActivity
 import io.nekohasekai.sagernet.utils.Subnet
+import moe.matsuri.nb4a.hevtun.HevTunRuntime
 import android.net.VpnService as BaseVpnService
 
 class VpnService : BaseVpnService(),
@@ -26,6 +27,7 @@ class VpnService : BaseVpnService(),
         const val PRIVATE_VLAN4_CLIENT = "172.19.0.1"
         const val PRIVATE_VLAN4_ROUTER = "172.19.0.2"
         const val FAKEDNS_VLAN4_CLIENT = "198.18.0.0"
+        const val HEV_MAPDNS_VLAN4 = "100.64.0.0"
         const val PRIVATE_VLAN6_CLIENT = "fdfe:dcba:9876::1"
         const val PRIVATE_VLAN6_ROUTER = "fdfe:dcba:9876::2"
 
@@ -40,6 +42,11 @@ class VpnService : BaseVpnService(),
     override suspend fun startProcesses() {
         DataStore.vpnService = this
         super.startProcesses() // launch proxy instance
+
+        if (DataStore.enableHevTun) {
+            val tunFd = establishTun()
+            HevTunRuntime.start(this, tunFd)
+        }
     }
 
     override var wakeLock: PowerManager.WakeLock? = null
@@ -52,6 +59,7 @@ class VpnService : BaseVpnService(),
 
     @Suppress("EXPERIMENTAL_API_USAGE")
     override fun killProcesses() {
+        HevTunRuntime.stop()
         conn?.close()
         conn = null
         super.killProcesses()
@@ -91,7 +99,10 @@ class VpnService : BaseVpnService(),
 //        Logs.d(tunPlatformOptionsJson)
 //        val tunOptions = JSONObject(tunOptionsJson)
 
-        // address & route & MTU ...... use NB4A GUI config
+        return establishTun()
+    }
+
+    fun establishTun(): Int {
         val builder = Builder().setConfigureIntent(SagerNet.configureIntent(this))
             .setSession(getString(R.string.app_name))
             .setMtu(DataStore.mtu)
@@ -112,6 +123,9 @@ class VpnService : BaseVpnService(),
             }
             builder.addRoute(PRIVATE_VLAN4_ROUTER, 32)
             builder.addRoute(FAKEDNS_VLAN4_CLIENT, 15)
+            if (DataStore.enableHevTun && DataStore.enableFakeDns) {
+                builder.addRoute(HEV_MAPDNS_VLAN4, 10)
+            }
             // https://issuetracker.google.com/issues/149636790
             if (ipv6Mode != IPv6Mode.DISABLE) {
                 builder.addRoute("2000::", 3)
@@ -189,7 +203,15 @@ class VpnService : BaseVpnService(),
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && DataStore.appendHttpProxy) {
-            builder.setHttpProxy(ProxyInfo.buildDirectProxy(LOCALHOST, DataStore.mixedPort))
+            builder.setHttpProxy(
+                ProxyInfo.buildDirectProxy(
+                    LOCALHOST,
+                    DataStore.mixedPort,
+                    DataStore.httpProxyBypass.lines().mapNotNull { line ->
+                        line.trim().takeIf { it.isNotBlank() && !it.startsWith("#") }
+                    },
+                )
+            )
         }
 
         metered = DataStore.meteredNetwork

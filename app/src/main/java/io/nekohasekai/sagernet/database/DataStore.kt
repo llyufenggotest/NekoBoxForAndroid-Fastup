@@ -93,6 +93,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var showBottomBar by configurationStore.boolean(Key.SHOW_BOTTOM_BAR)
     var confirmProfileDelete by configurationStore.boolean(Key.CONFIRM_PROFILE_DELETE) { true }
     var groupLayoutMode by configurationStore.stringToInt(Key.GROUP_LAYOUT_MODE) { 0 }
+    var profileCardStyle by configurationStore.stringToInt(Key.PROFILE_CARD_STYLE) { 0 }
 
     var allowInsecureOnRequest by configurationStore.boolean(Key.ALLOW_INSECURE_ON_REQUEST)
     var networkChangeResetConnections by configurationStore.boolean(Key.NETWORK_CHANGE_RESET_CONNECTIONS) { true }
@@ -141,12 +142,14 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     val mixedSecret: String
         @Synchronized get() {
             var s = configurationStore.getString(Key.MIXED_SECRET)
-            if (s.isNullOrEmpty()) {
+            if (s == null) {
                 s = java.util.UUID.randomUUID().toString().replace("-", "")
                 configurationStore.putString(Key.MIXED_SECRET, s)
             }
             return s
         }
+
+    var mixedUsername by configurationStore.string(Key.MIXED_USERNAME_PREF) { Key.MIXED_USERNAME }
 
     var mixedPort: Int
         get() = getLocalPort(Key.MIXED_PORT, 2080)
@@ -156,7 +159,11 @@ object DataStore : OnPreferenceDataStoreChangeListener {
         get() = serviceMode == Key.MODE_VPN &&
             !(appendHttpProxy && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
 
-    val mixedInboundUser: String get() = if (mixedInboundAuthed) Key.MIXED_USERNAME else ""
+    val mixedInboundHasAuth: Boolean
+        get() = mixedInboundNeedsAuth &&
+            (mixedUsername.isNotEmpty() || mixedSecret.isNotEmpty())
+
+    val mixedInboundUser: String get() = if (mixedInboundAuthed) mixedUsername else ""
     val mixedInboundPass: String get() = if (mixedInboundAuthed) mixedSecret else ""
 
     fun initGlobal() {
@@ -185,6 +192,8 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     val persistAcrossReboot by configurationStore.boolean(Key.PERSIST_ACROSS_REBOOT) { false }
 
     var appendHttpProxy by configurationStore.boolean(Key.APPEND_HTTP_PROXY)
+    var httpProxyBypass by configurationStore.string(Key.HTTP_PROXY_BYPASS) { "" }
+    var dnsHosts by configurationStore.string(Key.DNS_HOSTS) { "" }
     var strictRoute by configurationStore.boolean(Key.STRICT_ROUTE) { true }
     var connectionTestURL by configurationStore.string(Key.CONNECTION_TEST_URL) { CONNECTION_TEST_URL }
     var connectionTestConcurrent by configurationStore.int("connectionTestConcurrent") { 5 }
@@ -192,6 +201,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var alwaysShowAddress by configurationStore.boolean(Key.ALWAYS_SHOW_ADDRESS)
 
     var tunImplementation by configurationStore.stringToInt(Key.TUN_IMPLEMENTATION) { TunImplementation.GVISOR }
+    var enableHevTun by configurationStore.boolean(Key.ENABLE_HEV_TUN)
     var profileTrafficStatistics by configurationStore.boolean(Key.PROFILE_TRAFFIC_STATISTICS) { true }
 
     var yacdURL by configurationStore.string("yacdURL") { "http://127.0.0.1:9090/ui" }
@@ -298,6 +308,7 @@ object DataStore : OnPreferenceDataStoreChangeListener {
     var subscriptionAutoUpdateDelay by profileCacheStore.stringToInt(Key.SUBSCRIPTION_AUTO_UPDATE_DELAY) { 360 }
     var subscriptionFilterMode by profileCacheStore.stringToInt(Key.SUBSCRIPTION_FILTER_MODE) { 0 }
     var subscriptionFilterRegex by profileCacheStore.string(Key.SUBSCRIPTION_FILTER_REGEX)
+    var subscriptionServerDns by profileCacheStore.string(Key.SUBSCRIPTION_SERVER_DNS)
 
     var rulesFirstCreate by profileCacheStore.boolean("rulesFirstCreate")
 

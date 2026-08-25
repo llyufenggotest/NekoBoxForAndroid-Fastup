@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - name: Golang Status
         run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
       - name: Libcore Status
@@ -42,6 +44,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - name: Golang Status
         run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
       - name: Libcore Status
@@ -52,6 +56,16 @@ jobs:
           path: |
             app/libs/libcore.aar
           key: ${{ hashFiles('.github/workflows/*', 'golang_status', 'libcore_status') }}
+      - name: HevTun Status
+        run: |
+          git submodule status hev-socks5-tunnel > hev_status
+          cat buildScript/compile-hevtun.sh | sha1sum >> hev_status
+      - name: HevTun Cache
+        uses: actions/cache@v5
+        with:
+          path: |
+            app/src/main/jniLibs
+          key: hevtun-${{ hashFiles('.github/workflows/*', 'hev_status') }}
       - name: Gradle cache
         uses: actions/cache@v5
         with:
@@ -69,7 +83,7 @@ jobs:
           APK=$(find app/build/outputs/apk -name '*arm64-v8a*.apk')
           APK=$(dirname $APK)
           echo "APK=$APK" >> $GITHUB_ENV
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: APKs
           path: ${{ env.APK }}
@@ -81,6 +95,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - name: Donwload Artifacts
         uses: actions/download-artifact@v5
         with:

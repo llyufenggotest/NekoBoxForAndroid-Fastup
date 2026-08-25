@@ -46,7 +46,7 @@
         <EditTextPreference
             app:icon="@drawable/ic_baseline_rule_folder_24"
             app:key="routeRuleset"
-            app:title="RuleSet(.srs)"
+            app:title="rule-set"
             app:useSimpleSummaryProvider="true" />
         <moe.matsuri.nb4a.ui.SimpleMenuPreference
             app:entries="@array/route_protocol_entry"

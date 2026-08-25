@@ -43,6 +43,10 @@
     <string name="service_mode">运行模式</string>
     <string name="service_mode_proxy">仅代理</string>
     <string name="port_proxy">代理端口</string>
+    <string name="port_out_of_range">端口范围应为 1–65535</string>
+    <string name="local_proxy_settings">本地代理设置</string>
+    <string name="proxy_username">代理用户名</string>
+    <string name="proxy_password">代理密码</string>
     <string name="port_http">HTTP 代理端口</string>
     <string name="port_local_dns">本地 DNS 端口</string>
     <string name="allow_access">允许来自局域网的连接</string>
@@ -305,6 +309,8 @@
     <string name="tile_title">开关</string>
     <string name="append_http_proxy">追加 HTTP 代理至 VPN</string>
     <string name="append_http_proxy_sum">浏览器 / 一些支持的应用 将直接使用 HTTP 代理, 而不经过虚拟网卡设备 (Android 10+)</string>
+    <string name="http_proxy_bypass">HTTP 代理绕过列表</string>
+    <string name="http_proxy_bypass_dialog_message">一行一个，# 开头代表注释。示例：*zhihu.com</string>
     <string name="append_http_proxy_security_title">安全提示</string>
     <string name="append_http_proxy_security_message">开启后，本机其他应用可以直接使用本地代理端口。\n\n建议：仅在你信任所有已安装应用时开启。</string>
     <string name="enable_anyway">仍然开启</string>
@@ -361,11 +367,15 @@
     <string name="clear_profiles_message">您确定要清空该分组吗\?</string>
     <string name="remote_dns">远程 DNS</string>
     <string name="direct_dns">直连 DNS</string>
+    <string name="server_dns">自定义服务器 DNS</string>
+    <string name="server_dns_subscription_sum">仅用于解析此订阅中的服务器域名。留空时使用默认行为。支持 https://、tls://、quic:// 或 host[:port]。</string>
+    <string name="server_dns_invalid">自定义服务器 DNS 无效。请使用 https://、tls://、quic:// 或 host[:port]，或留空。</string>
     <string name="enable_dns_routing">启用 DNS 路由</string>
     <string name="dns_routing_message">使用直连 DNS 解析绕过路由中的 domains. 注意潜在的 DNS 泄漏</string>
     <string name="enable_fakedns">启用 FakeDNS</string>
     <string name="fakedns_message">可能导致其他应用程序在代理停止后需要重新启动以重新连接到网络</string>
     <string name="dns_hosts">域名重写</string>
+    <string name="dns_hosts_dialog_message">一行一个，# 开头代表注释。示例：\nexample.com 1.1.1.1\nwww.example.com 1.1.1.1 1.1.1.2</string>
     <string name="apps">应用</string>
     <string name="select_apps">选择应用</string>
     <string name="apps_message">%d 个应用</string>
@@ -417,6 +427,8 @@
     <string name="destination_override_summary">使用探测的域来覆盖目标地址, 而不是仅用于路由</string>
     <string name="destination_override">覆盖目标地址</string>
     <string name="tun_implementation">TUN 实现</string>
+    <string name="enable_hev_tun">启用 Hev TUN</string>
+    <string name="enable_hev_tun_summary">使用 hev-socks5-tunnel 创建 TUN 设备</string>
     <string name="generating">正在生成…</string>
     <string name="warp_generate">生成配置</string>
     <string name="warp_license">CloudFlare Warp 是一个免费的 WireGuard VPN 提供源. 使用它, 代表您同意其服务条款。</string>
@@ -563,7 +575,10 @@
     <string name="layout">布局</string>
     <string name="layout_single_column">单列</string>
     <string name="layout_double_column">双列</string>
-    <string name="sort_and_layout">排序与布局</string>
+    <string name="sort_and_layout">排序与外观</string>
+    <string name="card_style">卡片</string>
+    <string name="card_style_classic">经典</string>
+    <string name="card_style_stroke">描边</string>
     <string name="connection_test_timeout">测试超时（ms）</string>
     <string name="preview_version_hint">本应用为预览版，可能存在诸多问题。若您不愿参与测试，请前往GitHub下载正式发布版本！</string>
     <string name="check_update_preview">检查预览版更新</string>
@@ -583,4 +598,18 @@
     <string name="vless_encryption_hint">mlkem768x25519plus.native.0rtt.KEY1.KEY2...</string>
     <string name="app_list_permission_denied">无法读取已安装的应用。\n这通常是由于系统限制了应用的读取权限（例如某些中国厂商系统）。\n请在系统设置中授予权限。</string>
     <string name="open_app_settings">打开系统设置</string>
+
+    <!-- Snell Protocol -->
+    <string name="action_snell">Snell</string>
+    <string name="snell_psk">预共享密钥</string>
+    <string name="snell_userkey">用户密钥</string>
+    <string name="snell_version">版本</string>
+    <string name="snell_network">协议</string>
+    <string name="snell_obfs_mode">Obfs 模式</string>
+    <string name="snell_obfs_host">Obfs 主机</string>
+    <string name="snell_mode">模式</string>
+    <string name="snell_reuse">复用</string>
+    <string name="snell_quic_proxy">QUIC Proxy 模式</string>
+    <string name="snell_quic_proxy_summary">仅 v6：旧版 v5 QUIC Proxy 兼容</string>
+    <string name="snell_reuse_summary">仅适用于 v4-v6</string>
 </resources>

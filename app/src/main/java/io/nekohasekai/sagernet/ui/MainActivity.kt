@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.os.RemoteException
 import android.view.KeyEvent
 import android.view.MenuItem
+import android.view.View
 import androidx.activity.addCallback
 import androidx.annotation.IdRes
 import androidx.core.app.ActivityCompat
@@ -27,7 +28,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.SpeedDisplayData
-import io.nekohasekai.sagernet.aidl.TrafficData
+import io.nekohasekai.sagernet.aidl.TrafficDataBatch
 import io.nekohasekai.sagernet.bg.BaseService
 import io.nekohasekai.sagernet.bg.SagerConnection
 import io.nekohasekai.sagernet.database.DataStore
@@ -61,10 +62,12 @@ class MainActivity : ThemedActivity(),
 
     lateinit var binding: LayoutMainBinding
     lateinit var navigation: NavigationView
+    private var currentMainFragment: ToolbarFragment? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MessageStore.setCurrentActivity(this)
+        val animateInitialControls = savedInstanceState == null
 
         binding = LayoutMainBinding.inflate(layoutInflater)
         binding.fab.initProgress(binding.fabProgress)
@@ -82,6 +85,9 @@ class MainActivity : ThemedActivity(),
 
         if (savedInstanceState == null) {
             displayFragmentWithId(R.id.nav_configuration)
+        } else {
+            currentMainFragment =
+                supportFragmentManager.findFragmentById(R.id.fragment_holder) as? ToolbarFragment
         }
         onBackPressedDispatcher.addCallback {
             if (supportFragmentManager.findFragmentById(R.id.fragment_holder) is ConfigurationFragment) {
@@ -99,7 +105,17 @@ class MainActivity : ThemedActivity(),
         binding.stats.setOnClickListener { if (DataStore.serviceState.connected) binding.stats.testConnection() }
 
         setContentView(binding.root)
-        changeState(BaseService.State.Idle)
+        currentMainFragment =
+            supportFragmentManager.findFragmentById(R.id.fragment_holder) as? ToolbarFragment
+                ?: currentMainFragment
+        if (!animateInitialControls) {
+            syncMainControls(showWhenConnected = false, animate = false)
+        }
+        changeState(
+            BaseService.State.Idle,
+            animate = false,
+            animateControls = animateInitialControls,
+        )
         connection.connect(this, this)
         DataStore.configurationStore.registerChangeListener(this)
         GroupManager.userInterface = GroupInterfaceAdapter(this)
@@ -134,12 +150,26 @@ class MainActivity : ThemedActivity(),
     override fun onResume() {
         super.onResume()
         MessageStore.setCurrentActivity(this)
-        
+
         if (DataStore.hideFromRecentApps) {
             applyHideFromRecentApps(DataStore.hideFromRecentApps)
         }
     }
-    
+
+    override fun onPostResume() {
+        super.onPostResume()
+        val restoredFragment =
+            supportFragmentManager.findFragmentById(R.id.fragment_holder) as? ToolbarFragment
+        if (restoredFragment != null && restoredFragment !== currentMainFragment) {
+            currentMainFragment = restoredFragment
+            syncMainControls(
+                fragment = restoredFragment,
+                showWhenConnected = DataStore.serviceState == BaseService.State.Connected,
+                animate = false,
+            )
+        }
+    }
+
     fun applyHideFromRecentApps(hide: Boolean) {
         try {
             val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -340,18 +370,51 @@ class MainActivity : ThemedActivity(),
 
     @SuppressLint("CommitTransaction")
     fun displayFragment(fragment: ToolbarFragment) {
-        if (fragment is ConfigurationFragment) {
-            binding.stats.allowShow = true
-            binding.fab.show()
-        } else if (!DataStore.showBottomBar) {
-            binding.stats.allowShow = false
-            binding.stats.performHide()
-            binding.fab.hide()
-        }
+        currentMainFragment = fragment
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_holder, fragment)
             .commitAllowingStateLoss()
         binding.drawerLayout.closeDrawers()
+        syncMainControls(fragment, showWhenConnected = false, animate = true)
+    }
+
+    private fun syncMainControls(
+        fragment: Any? = currentMainFragment
+            ?: supportFragmentManager.findFragmentById(R.id.fragment_holder),
+        showWhenConnected: Boolean,
+        animate: Boolean,
+    ) {
+        val showControls = fragment is ConfigurationFragment || DataStore.showBottomBar
+        binding.stats.useExternalScrollDriver = fragment is ConfigurationFragment
+        binding.stats.syncMainControls(
+            showControls,
+            DataStore.serviceState,
+            showWhenConnected,
+            animate,
+        )
+        binding.fab.animate().cancel()
+        if (showControls) {
+            binding.fab.show()
+        } else {
+            binding.fab.hideProgress()
+            binding.fabProgress.hide()
+            binding.fabProgress.visibility = View.INVISIBLE
+            if (animate && binding.fab.isLaidOut) {
+                binding.fab.hide()
+            } else {
+                binding.fab.visibility = View.INVISIBLE
+            }
+        }
+    }
+
+    private fun refreshConfigurationProfileState() {
+        val fragment = currentMainFragment
+            ?: supportFragmentManager.findFragmentById(R.id.fragment_holder)
+        (fragment as? ConfigurationFragment)?.refreshProfileState()
+    }
+
+    fun driveBottomBar(scrollDy: Int) {
+        binding.stats.onListScrolled(scrollDy)
     }
 
     fun displayFragmentWithId(@IdRes id: Int): Boolean {
@@ -383,11 +446,17 @@ class MainActivity : ThemedActivity(),
         state: BaseService.State,
         msg: String? = null,
         animate: Boolean = false,
+        animateControls: Boolean = animate,
     ) {
         DataStore.serviceState = state
+        refreshConfigurationProfileState()
 
         binding.fab.changeState(state, DataStore.serviceState, animate)
         binding.stats.changeState(state)
+        syncMainControls(
+            showWhenConnected = state == BaseService.State.Connected,
+            animate = animateControls,
+        )
         if (msg != null) snackbar(getString(R.string.vpn_error, msg)).show()
     }
 
@@ -429,16 +498,15 @@ class MainActivity : ThemedActivity(),
         binding.stats.updateSpeed(stats.txRateProxy, stats.rxRateProxy)
     }
 
-    override fun cbTrafficUpdate(data: TrafficData) {
-        runOnDefaultDispatcher {
-            ProfileManager.postUpdate(data)
-        }
+    override suspend fun cbTrafficUpdate(data: TrafficDataBatch) {
+        ProfileManager.postUpdate(data.items)
     }
 
     override fun cbSelectorUpdate(id: Long) {
         val old = DataStore.selectedProxy
         DataStore.selectedProxy = id
         DataStore.currentProfile = id
+        refreshConfigurationProfileState()
         runOnDefaultDispatcher {
             ProfileManager.postUpdate(old, true)
             ProfileManager.postUpdate(id, true)
@@ -448,6 +516,10 @@ class MainActivity : ThemedActivity(),
     override fun onPreferenceDataStoreChanged(store: PreferenceDataStore, key: String) {
         when (key) {
             Key.SERVICE_MODE -> onBinderDied()
+            Key.SHOW_BOTTOM_BAR -> syncMainControls(
+                showWhenConnected = DataStore.showBottomBar,
+                animate = true,
+            )
             Key.PROXY_APPS, Key.BYPASS_MODE, Key.INDIVIDUAL -> {
                 if (DataStore.serviceState.canStop) {
                     snackbar(getString(R.string.need_reload)).setAction(R.string.apply) {

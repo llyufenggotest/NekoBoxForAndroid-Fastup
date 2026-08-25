@@ -6,6 +6,10 @@
     <string name="port_transproxy">トランスプロキシポート</string>
     <string name="port_http">HTTPプロキシポート</string>
     <string name="port_proxy">プロキシポート</string>
+    <string name="local_proxy_settings">ローカルプロキシ設定</string>
+    <string name="proxy_username">プロキシユーザー名</string>
+    <string name="proxy_password">プロキシパスワード</string>
+    <string name="port_out_of_range">ポートは1～65535の範囲で指定してください</string>
     <string name="service_mode_proxy">プロキシのみ</string>
     <string name="service_mode">サービスモード</string>
     <string name="group_duplicate">複製：
@@ -73,11 +77,15 @@
     <string name="connection_test_url">テスト用リンクを接続</string>
     <string name="port_local_dns">ローカルDNSポート</string>
     <string name="dns_hosts">ドメインの書き換え</string>
+    <string name="dns_hosts_dialog_message">1 行に 1 つ。# で始まる行はコメントです。例:\nexample.com 1.1.1.1\nwww.example.com 1.1.1.1 1.1.1.2</string>
     <string name="fakedns_message">プロキシが停止した後、ネットワークに再接続するために他のアプリケーションを再起動する必要がある場合があります。</string>
     <string name="enable_fakedns">FakeDNSを有効化</string>
     <string name="enable_dns_routing">DNSルーティングを有効化</string>
     <string name="direct_dns">ダイレクトDNS</string>
     <string name="remote_dns">リモートDNS</string>
+    <string name="server_dns">カスタムサーバー DNS</string>
+    <string name="server_dns_subscription_sum">このサブスクリプション内のサーバードメイン解決にのみ使用する任意の DNS です。空欄の場合は既定の動作を使用します。https://、tls://、quic:// または host[:port] を受け付けます。</string>
+    <string name="server_dns_invalid">カスタムサーバー DNS が無効です。https://、tls://、quic:// または host[:port] を使用するか、空欄のままにしてください。</string>
     <string name="connection_test_error_status_code">エラーコード: #%d</string>
     <string name="connection_test_fail">インターネットは利用できません</string>
     <string name="connection_test_error">失敗: %s</string>
@@ -108,7 +116,10 @@
     <string name="layout">レイアウト</string>
     <string name="layout_single_column">1列</string>
     <string name="layout_double_column">2列</string>
-    <string name="sort_and_layout">並べ替えとレイアウト</string>
+    <string name="sort_and_layout">並べ替えと外観</string>
+    <string name="card_style">カード</string>
+    <string name="card_style_classic">クラシック</string>
+    <string name="card_style_stroke">枠線</string>
     <string name="ws_browser_forwarding_sum">対応する WebSocket をブラウザ経由で転送します。</string>
     <string name="allow_insecure">安全でない接続を許可</string>
     <string name="connection_test_available_http">成功: HTTP ハンドシェイクに %dms かかりました</string>
@@ -303,6 +314,8 @@
     <string name="connection_test_timeout_error">タイムアウト</string>
     <string name="append_http_proxy">VPN に HTTP プロキシを追加</string>
     <string name="append_http_proxy_sum">HTTP プロキシは仮想 NIC デバイスを経由せず、(ブラウザ/一部の対応アプリ) から直接使用されます (Android 10+)</string>
+    <string name="http_proxy_bypass">HTTP プロキシのバイパスリスト</string>
+    <string name="http_proxy_bypass_dialog_message">1 行に 1 つ。# で始まる行はコメントです。例: *zhihu.com</string>
     <string name="append_http_proxy_security_title">セキュリティに関する通知</string>
     <string name="append_http_proxy_security_message">有効にすると、このデバイス上の他のアプリがローカルプロキシポートを直接使用できるようになります。\n\n推奨：インストールされているすべてのアプリを信頼している場合にのみ有効にしてください。</string>
     <string name="enable_anyway">それでも有効にする</string>
@@ -406,6 +419,8 @@
     <string name="warp_generate">設定を生成</string>
     <string name="generating">生成中…</string>
     <string name="tun_implementation">TUN 実装</string>
+    <string name="enable_hev_tun">Hev TUN を有効化</string>
+    <string name="enable_hev_tun_summary">hev-socks5-tunnel で TUN デバイスを作成</string>
     <string name="destination_override">宛先を上書き</string>
     <string name="destination_override_summary">スニッフィングしたドメインを使って宛先アドレスを上書きします (ルーティングだけでなく)</string>
     <string name="resolve_destination">宛先を解決</string>
@@ -564,11 +579,15 @@
     <string name="app_list_permission_denied">インストール済みアプリを読み取れません。\nこれは通常、システムがアプリの読み取り権限を制限しているためです。\nシステム設定で権限を付与してください。</string>
     <string name="open_app_settings">システム設定を開く</string>
     <string name="action_snell">Snell</string>
-    <string name="snell_psk">キー</string>
+    <string name="snell_psk">事前共有キー</string>
+    <string name="snell_userkey">ユーザーキー</string>
     <string name="snell_version">バージョン</string>
     <string name="snell_network">プロトコル</string>
     <string name="snell_obfs_mode">Obfs モード</string>
     <string name="snell_obfs_host">Obfs ホスト</string>
+    <string name="snell_mode">モード</string>
     <string name="snell_reuse">再利用</string>
-    <string name="snell_reuse_summary">v4/v5 のみ</string>
+    <string name="snell_reuse_summary">v4-v6 のみ</string>
+    <string name="snell_quic_proxy">QUIC プロキシモード</string>
+    <string name="snell_quic_proxy_summary">v6 のみ：旧 v5 QUIC プロキシ互換</string>
 </resources>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">NekoBox</string>
-    <string name="app_name_long" translatable="false">NekoBox for Android</string>
+    <string name="app_name" translatable="false">NekoBoxF</string>
+    <string name="app_name_long" translatable="false">NekoBoxF for Android</string>
     <string name="app_desc">The universal proxy toolchain for Android, written in Kotlin.</string>
     <string name="project">Project</string>
     <string name="github">Source code</string>
@@ -40,7 +40,10 @@
     <string name="layout">Layout</string>
     <string name="layout_single_column">Single column</string>
     <string name="layout_double_column">Double column</string>
-    <string name="sort_and_layout">Sort and Layout</string>
+    <string name="sort_and_layout">Sort and Appearance</string>
+    <string name="card_style">Card</string>
+    <string name="card_style_classic">Classic</string>
+    <string name="card_style_stroke">Stroke</string>
     <string name="group_status_empty">Empty group</string>
     <string name="group_status_empty_subscription">Not updated yet</string>
     <string name="group_status_proxies">%d Proxies</string>
@@ -59,6 +62,10 @@
     <string name="service_mode_proxy">Proxy only</string>
     <string name="service_mode_vpn" translatable="false">VPN</string>
     <string name="port_proxy">Proxy Port</string>
+    <string name="port_out_of_range">Port should be in range 1–65535</string>
+    <string name="local_proxy_settings">Local Proxy Settings</string>
+    <string name="proxy_username">Proxy Username</string>
+    <string name="proxy_password">Proxy Password</string>
     <string name="port_http">HTTP Proxy Port</string>
     <string name="port_transproxy">Transproxy Port</string>
     <string name="cag_route">Route Settings</string>
@@ -101,6 +108,7 @@
     <string name="fakedns_message">May cause other applications need to be restarted to reconnect to
         the network after proxy stopped</string>
     <string name="dns_hosts">Domain rewrite</string>
+    <string name="dns_hosts_dialog_message">One per line. Lines starting with # are comments. Example:\nexample.com 1.1.1.1\nwww.example.com 1.1.1.1 1.1.1.2</string>
     <string name="port_local_dns">Local DNS Port</string>
     <string name="require_transproxy">Enable Transproxy Inbound</string>
     <string name="transproxy_mode">Transproxy Mode</string>
@@ -360,6 +368,8 @@
     <string name="append_http_proxy">Append HTTP Proxy to VPN</string>
     <string name="append_http_proxy_sum">HTTP proxy will be used directly from (browser/ some
         supported apps), without going through the virtual NIC device (Android 10+)</string>
+    <string name="http_proxy_bypass">HTTP proxy bypass list</string>
+    <string name="http_proxy_bypass_dialog_message">One per line. Lines starting with # are comments. Example: *zhihu.com</string>
     <string name="append_http_proxy_security_title">Security Notice</string>
     <string name="append_http_proxy_security_message">When enabled, other apps on this device can directly use the local proxy port.\n\nRecommendation: Only enable this if you trust all installed apps.</string>
     <string name="enable_anyway">Enable Anyway</string>
@@ -409,6 +419,9 @@
     <string name="subscription_update">Subscription Update</string>
     <string name="subscription_update_message">Updating %s …</string>
     <string name="group_filter">Filter</string>
+    <string name="server_dns">Custom Server DNS</string>
+    <string name="server_dns_subscription_sum">Optional DNS used only to resolve server domains in this subscription. Leave empty to use the default behavior. Accepts https://, tls://, quic:// or host[:port].</string>
+    <string name="server_dns_invalid">Invalid custom server DNS. Use https://, tls://, quic:// or host[:port], or leave empty.</string>
     <string name="subscription_used">%s Used</string>
     <string name="subscription_traffic">%s Used / %s Remaining</string>
     <string name="subscription_expire">Expire: %s</string>
@@ -489,6 +502,8 @@
     <string name="warp_generate">Generate Configuration</string>
     <string name="generating">Generating…</string>
     <string name="tun_implementation">TUN Implementation</string>
+    <string name="enable_hev_tun">Enable Hev TUN</string>
+    <string name="enable_hev_tun_summary">Use hev-socks5-tunnel to create the TUN device</string>
     <string name="destination_override">Override Destination</string>
     <string name="destination_override_summary">Use the sniffed domain to overwrite the destination
         address, not just for routing</string>
@@ -671,12 +686,16 @@
 
     <!-- Snell Protocol -->
     <string name="action_snell">Snell</string>
-    <string name="snell_psk">密钥</string>
-    <string name="snell_version">版本</string>
-    <string name="snell_network">协议</string>
-    <string name="snell_obfs_mode">Obfs 模式</string>
-    <string name="snell_obfs_host">Obfs 主机</string>
+    <string name="snell_psk">Pre-shared Key</string>
+    <string name="snell_userkey">User Key</string>
+    <string name="snell_version">Version</string>
+    <string name="snell_network">Network</string>
+    <string name="snell_obfs_mode">Obfs Mode</string>
+    <string name="snell_obfs_host">Obfs Host</string>
+    <string name="snell_mode">Mode</string>
     <string name="snell_reuse">Reuse</string>
-    <string name="snell_reuse_summary">v4/v5 only</string>
+    <string name="snell_quic_proxy">QUIC Proxy Mode</string>
+    <string name="snell_quic_proxy_summary">v6 only: legacy v5 QUIC Proxy compatibility</string>
+    <string name="snell_reuse_summary">v4-v6 only</string>
 
 </resources>

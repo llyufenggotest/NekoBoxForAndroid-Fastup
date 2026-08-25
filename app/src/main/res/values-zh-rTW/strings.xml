@@ -40,6 +40,10 @@
     <string name="service_mode">執行模式</string>
     <string name="service_mode_proxy">代理</string>
     <string name="port_proxy">代理連接埠</string>
+    <string name="local_proxy_settings">本機代理設定</string>
+    <string name="proxy_username">代理使用者名稱</string>
+    <string name="proxy_password">代理密碼</string>
+    <string name="port_out_of_range">連接埠範圍應為 1–65535</string>
     <string name="port_http">HTTP 代理連接埠</string>
     <string name="port_local_dns">本地 DNS 連接埠</string>
     <string name="allow_access">允許來自區域網路的連線</string>
@@ -187,6 +191,9 @@
     <string name="enable_dns_routing">啟用 DNS 路由</string>
     <string name="direct_dns">直連 DNS</string>
     <string name="remote_dns">遠端 DNS</string>
+    <string name="server_dns">自訂伺服器 DNS</string>
+    <string name="server_dns_subscription_sum">僅用於解析此訂閱中的伺服器網域名稱。留空時使用預設行為。支援 https://、tls://、quic:// 或 host[:port]。</string>
+    <string name="server_dns_invalid">自訂伺服器 DNS 無效。請使用 https://、tls://、quic:// 或 host[:port]，或留空。</string>
     <string name="connection_test_available_http">成功：HTTP 握手花費 %d 毫秒</string>
     <string name="allow_insecure_sum">停用憑證檢查。當啟用時，此設定檔將和純文字同等安全</string>
     <string name="allow_insecure">允許不安全的連線</string>
@@ -291,6 +298,9 @@
     <string name="connection_test_timeout_error">逾時</string>
     <string name="append_http_proxy">為 VPN 附加 HTTP 代理</string>
     <string name="append_http_proxy_sum">HTTP 代理將直接被支援的瀏覽器/應用程式使用，而無需經過虛擬網路卡（Android 10+）</string>
+    <string name="http_proxy_bypass">HTTP 代理繞過列表</string>
+    <string name="http_proxy_bypass_dialog_message">一行一個，# 開頭代表註解。範例：*zhihu.com</string>
+    <string name="dns_hosts_dialog_message">一行一個，# 開頭代表註解。範例：\nexample.com 1.1.1.1\nwww.example.com 1.1.1.1 1.1.1.2</string>
     <string name="append_http_proxy_security_title">安全提示</string>
     <string name="append_http_proxy_security_message">開啟後，本機其他應用程式可以直接使用本機代理連接埠。\n\n建議：僅在你信任所有已安裝應用程式時開啟。</string>
     <string name="enable_anyway">仍然開啟</string>
@@ -381,6 +391,8 @@
     <string name="profile_traffic_statistics_summary">當停用時，使用的流量將不會被統計</string>
     <string name="app_statistics_disabled">應用程式流量統計資料被停用</string>
     <string name="tun_implementation">TUN 實作</string>
+    <string name="enable_hev_tun">啟用 Hev TUN</string>
+    <string name="enable_hev_tun_summary">使用 hev-socks5-tunnel 建立 TUN 裝置</string>
     <string name="destination_override">覆寫目的地位址</string>
     <string name="resolve_destination">解析目的地位址</string>
     <string name="clear_logcat">清除記錄檔</string>
@@ -423,7 +435,10 @@
     <string name="layout">佈局</string>
     <string name="layout_single_column">單列</string>
     <string name="layout_double_column">雙列</string>
-    <string name="sort_and_layout">排序與佈局</string>
+    <string name="sort_and_layout">排序與外觀</string>
+    <string name="card_style">卡片</string>
+    <string name="card_style_classic">經典</string>
+    <string name="card_style_stroke">描邊</string>
     <string name="enable_fakedns">啟用 FakeDNS</string>
     <string name="fakedns_message">可能導致其他應用程式在代理停止後需要重新啟動以重新連線到網路</string>
     <string name="kcp_header_type">偽裝頭型別</string>
@@ -585,11 +600,15 @@
     <string name="mux_preference">多路複用</string>
     <string name="padding">填充</string>
     <string name="action_snell">Snell</string>
-    <string name="snell_psk">金鑰</string>
+    <string name="snell_psk">預共享金鑰</string>
+    <string name="snell_userkey">使用者金鑰</string>
     <string name="snell_version">版本</string>
     <string name="snell_network">協定</string>
     <string name="snell_obfs_mode">Obfs 模式</string>
     <string name="snell_obfs_host">Obfs 主機</string>
+    <string name="snell_mode">模式</string>
     <string name="snell_reuse">重用</string>
-    <string name="snell_reuse_summary">僅 v4/v5</string>
+    <string name="snell_reuse_summary">僅 v4-v6</string>
+    <string name="snell_quic_proxy">QUIC Proxy 模式</string>
+    <string name="snell_quic_proxy_summary">僅 v6：舊版 v5 QUIC Proxy 相容</string>
 </resources>

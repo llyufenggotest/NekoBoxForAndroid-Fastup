@@ -4,7 +4,7 @@ import io.nekohasekai.sagernet.ktx.urlSafe
 import io.nekohasekai.sagernet.ktx.unUrlSafe
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
-// URI 格式: snell://base64(psk)@server:port?version=4&obfs-mode=http&obfs-host=bing.com&reuse=true&network=tcp#name
+// URI 格式: snell://base64(psk)@server:port?version=6&userkey=base64(userkey)&mode=default&reuse=true&network=tcp#name
 fun parseSnell(url: String): SnellBean {
     val link = url.replace("snell://", "https://").toHttpUrlOrNull()
         ?: error("Invalid snell URL")
@@ -16,12 +16,15 @@ fun parseSnell(url: String): SnellBean {
         name = link.fragment ?: ""
 
         link.queryParameter("version")?.toIntOrNull()?.let {
-            version = it.coerceIn(1, 5)
+            version = it.coerceIn(1, 6)
         }
+        link.queryParameter("userkey")?.let { userKey = it.unUrlSafe() }
         link.queryParameter("obfs-mode")?.let { obfsMode = it }
         link.queryParameter("obfs-host")?.let { obfsHost = it }
         link.queryParameter("reuse")?.let { reuse = it.toBoolean() }
         link.queryParameter("network")?.let { network = it }
+        link.queryParameter("mode")?.let { mode = it }
+        link.queryParameter("quic-proxy-mode")?.let { quicProxyMode = it.toBoolean() }
     }
 }
 
@@ -32,8 +35,14 @@ fun SnellBean.toUri(): String {
 
     val params = mutableListOf<String>()
     params.add("version=$version")
-    if (obfsMode.isNotBlank()) params.add("obfs-mode=$obfsMode")
-    if (obfsHost.isNotBlank()) params.add("obfs-host=$obfsHost")
+    if (userKey.isNotBlank()) params.add("userkey=${userKey.urlSafe()}")
+    if (version == 6) {
+        if (mode.isNotBlank() && mode != "default") params.add("mode=$mode")
+        if (quicProxyMode == true) params.add("quic-proxy-mode=true")
+    } else {
+        if (obfsMode.isNotBlank()) params.add("obfs-mode=$obfsMode")
+        if (obfsHost.isNotBlank()) params.add("obfs-host=$obfsHost")
+    }
     if (reuse) params.add("reuse=true")
     if (network.isNotBlank()) params.add("network=$network")
 
