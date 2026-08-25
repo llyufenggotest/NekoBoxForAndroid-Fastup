@@ -59,6 +59,7 @@ fun parseOppaNode(url: String): OppaBean {
 }
 
 fun buildSingBoxOutboundOppaBean(bean: OppaBean): SingBoxOptions.Outbound_OppaOptions {
+    bean.initializeDefaultValues()
     return SingBoxOptions.Outbound_OppaOptions().apply {
         type = "oppa"
         server = bean.serverAddress
@@ -76,6 +77,7 @@ fun buildSingBoxOutboundOppaBean(bean: OppaBean): SingBoxOptions.Outbound_OppaOp
 }
 
 fun OppaBean.toUri(): String {
+    initializeDefaultValues()
     requireValidPassword(password)
     val host = if (serverAddress.contains(':')) "[$serverAddress]" else serverAddress
     val query = buildList {
