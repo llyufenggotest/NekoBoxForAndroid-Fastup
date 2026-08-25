@@ -15,6 +15,8 @@ import io.nekohasekai.sagernet.fmt.internal.ChainBean
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean
 import io.nekohasekai.sagernet.fmt.mieru.buildMieruConfig
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
+import io.nekohasekai.sagernet.fmt.oppa.OppaBean
+import io.nekohasekai.sagernet.fmt.oppa.toUri
 import io.nekohasekai.sagernet.fmt.naive.buildNaiveConfig
 import io.nekohasekai.sagernet.fmt.naive.toUri
 import io.nekohasekai.sagernet.fmt.shadowsocks.*
@@ -83,6 +85,7 @@ data class ProxyEntity(
     var configBean: ConfigBean? = null,
     var snellBean: SnellBean? = null,
     var xhttpBean: XHttpBean? = null,
+    var oppaBean: OppaBean? = null,
 ) : Serializable() {
 
     companion object {
@@ -106,6 +109,7 @@ data class ProxyEntity(
         const val TYPE_JUICITY = 23
         const val TYPE_SNELL = 24
         const val TYPE_XHTTP = 26
+        const val TYPE_OPPA = 27
 
         const val TYPE_CONFIG = 998
         const val TYPE_NEKO = 999
@@ -197,6 +201,7 @@ data class ProxyEntity(
             TYPE_CONFIG -> configBean = KryoConverters.configDeserialize(byteArray)
             TYPE_SNELL -> snellBean = KryoConverters.snellDeserialize(byteArray)
             TYPE_XHTTP -> xhttpBean = KryoConverters.xhttpDeserialize(byteArray)
+            TYPE_OPPA -> oppaBean = KryoConverters.oppaDeserialize(byteArray)
         }
     }
 
@@ -222,6 +227,7 @@ data class ProxyEntity(
         TYPE_CONFIG -> configBean!!.displayType()
         TYPE_SNELL -> "Snell"
         TYPE_XHTTP -> "XHTTP"
+        TYPE_OPPA -> "Oppa"
         else -> "Undefined type $type"
     }
 
@@ -251,6 +257,7 @@ data class ProxyEntity(
             TYPE_CONFIG -> configBean
             TYPE_SNELL -> snellBean
             TYPE_XHTTP -> xhttpBean
+            TYPE_OPPA -> oppaBean
             else -> error("Undefined type $type")
         } ?: error("Null ${displayType()} profile")
     }
@@ -287,6 +294,7 @@ data class ProxyEntity(
             is TuicBean -> toUri()
             is JuicityBean -> toUri()
             is AnyTLSBean -> toUri()
+            is OppaBean -> toUri()
             is SnellBean -> toUri()
             is NekoBean -> ""
             else -> toUniversalLink()
@@ -444,6 +452,7 @@ data class ProxyEntity(
         configBean = null
         nekoBean = null
         xhttpBean = null
+        oppaBean = null
 
         when (bean) {
             is SOCKSBean -> {
@@ -536,6 +545,11 @@ data class ProxyEntity(
                 xhttpBean = bean
             }
 
+            is OppaBean -> {
+                type = TYPE_OPPA
+                oppaBean = bean
+            }
+
             is ChainBean -> {
                 type = TYPE_CHAIN
                 chainBean = bean
@@ -578,6 +592,7 @@ data class ProxyEntity(
                 TYPE_CHAIN -> ChainSettingsActivity::class.java
                 TYPE_CONFIG -> ConfigSettingActivity::class.java
                 TYPE_SNELL -> SnellSettingsActivity::class.java
+                TYPE_OPPA -> OppaSettingsActivity::class.java
                 else -> throw IllegalArgumentException()
             }
         ).apply {

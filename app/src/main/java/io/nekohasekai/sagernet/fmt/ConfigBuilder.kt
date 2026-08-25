@@ -22,6 +22,8 @@ import io.nekohasekai.sagernet.fmt.tuic.TuicBean
 import io.nekohasekai.sagernet.fmt.tuic.buildSingBoxOutboundTuicBean
 import io.nekohasekai.sagernet.fmt.juicity.JuicityBean
 import io.nekohasekai.sagernet.fmt.juicity.buildSingBoxOutboundJuicityBean
+import io.nekohasekai.sagernet.fmt.oppa.OppaBean
+import io.nekohasekai.sagernet.fmt.oppa.buildSingBoxOutboundOppaBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
 import io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean
 import io.nekohasekai.sagernet.fmt.shadowsocksr.ShadowsocksRBean
@@ -458,6 +460,9 @@ fun buildConfig(
 
                         is JuicityBean ->
                             buildSingBoxOutboundJuicityBean(bean)
+
+                        is OppaBean ->
+                            buildSingBoxOutboundOppaBean(bean)
 
                         is SOCKSBean ->
                             buildSingBoxOutboundSocksBean(bean)

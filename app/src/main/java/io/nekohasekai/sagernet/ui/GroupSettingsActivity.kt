@@ -25,6 +25,7 @@ import io.nekohasekai.sagernet.SubscriptionFilterMode
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeListener
 import io.nekohasekai.sagernet.group.GroupUpdater
+import io.nekohasekai.sagernet.fmt.oppa.parseOppaProvider
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ktx.onMainDispatcher
@@ -176,6 +177,21 @@ class GroupSettingsActivity(
         updateGroupType()
         groupType.setOnPreferenceChangeListener { _, newValue ->
             updateGroupType((newValue as String).toInt())
+            true
+        }
+
+        findPreference<EditTextPreference>(Key.SUBSCRIPTION_LINK)?.setOnPreferenceChangeListener { _, newValue ->
+            val link = newValue.toString().trim()
+            if (link.startsWith("oppa://")) {
+                val provider = runCatching { parseOppaProvider(link) }.getOrElse {
+                    Toast.makeText(requireContext(), it.message ?: "Invalid Oppa subscription", Toast.LENGTH_LONG).show()
+                    return@setOnPreferenceChangeListener false
+                }
+                if (DataStore.groupName.isBlank() || DataStore.groupName == "My group") {
+                    DataStore.groupName = provider.name
+                    findPreference<EditTextPreference>(Key.GROUP_NAME)?.text = provider.name
+                }
+            }
             true
         }
 

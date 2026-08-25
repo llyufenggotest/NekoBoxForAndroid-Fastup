@@ -63,6 +63,7 @@ import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeLi
 import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
 import io.nekohasekai.sagernet.databinding.LayoutProgressListBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.oppa.parseOppaProvider
 import io.nekohasekai.sagernet.fmt.toUniversalLink
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.group.RawUpdater
@@ -607,7 +608,11 @@ class ConfigurationFragment @JvmOverloads constructor(
                         } else {
                             val subscriptionUri = Uri.parse(e.link)
                             val subscriptionLink = subscriptionUri.getQueryParameter("url") ?: e.link
-                            val airportName = subscriptionUri.getQueryParameter("name")?.takeIf { it.isNotBlank() }
+                            val oppaProviderName = if (subscriptionLink.startsWith("oppa://")) {
+                                runCatching { parseOppaProvider(subscriptionLink).name }.getOrNull()
+                            } else null
+                            val airportName = oppaProviderName
+                                ?: subscriptionUri.getQueryParameter("name")?.takeIf { it.isNotBlank() }
                                 ?: withTimeoutOrNull(5_000L) {
                                     withContext(Dispatchers.IO) { fetchAirportName(subscriptionLink) }
                                 }
@@ -693,6 +698,10 @@ class ConfigurationFragment @JvmOverloads constructor(
 
             R.id.action_new_juicity -> {
                 startActivity(Intent(requireActivity(), JuicitySettingsActivity::class.java))
+            }
+
+            R.id.action_new_oppa -> {
+                startActivity(Intent(requireActivity(), OppaSettingsActivity::class.java))
             }
 
             R.id.action_new_ssh -> {

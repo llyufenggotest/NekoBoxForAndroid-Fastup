@@ -15,6 +15,8 @@ import io.nekohasekai.sagernet.fmt.socks.parseSOCKS
 import io.nekohasekai.sagernet.fmt.trojan.parseTrojan
 import io.nekohasekai.sagernet.fmt.tuic.parseTuic
 import io.nekohasekai.sagernet.fmt.juicity.parseJuicity
+import io.nekohasekai.sagernet.fmt.oppa.parseOppaNode
+import io.nekohasekai.sagernet.fmt.oppa.parseOppaProvider
 import io.nekohasekai.sagernet.fmt.trojan_go.parseTrojanGo
 import io.nekohasekai.sagernet.fmt.v2ray.parseV2Ray
 import moe.matsuri.nb4a.proxy.anytls.parseAnytls
@@ -236,6 +238,18 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
             Logs.d("Try parse Snell link: $this")
             runCatching {
                 entities.add(parseSnell(this))
+            }.onFailure {
+                Logs.w(it)
+            }
+        } else if (startsWith("oppa://")) {
+            Logs.d("Try parse Oppa link")
+            val isProvider = !substringAfter("oppa://").contains('@')
+            if (isProvider) {
+                parseOppaProvider(this)
+                throw SubscriptionFoundException(this)
+            }
+            runCatching {
+                entities.add(parseOppaNode(this))
             }.onFailure {
                 Logs.w(it)
             }

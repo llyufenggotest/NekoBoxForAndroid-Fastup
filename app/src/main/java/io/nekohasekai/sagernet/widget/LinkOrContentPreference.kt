@@ -10,6 +10,7 @@ import com.google.android.material.textfield.TextInputLayout
 import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.ktx.app
 import io.nekohasekai.sagernet.ktx.readableMessage
+import io.nekohasekai.sagernet.fmt.oppa.parseOppaProvider
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 class LinkOrContentPreference
@@ -37,7 +38,13 @@ constructor(
                 }
 
                 try {
-                    if (Uri.parse(link.toString()).scheme == "content") {
+                    val uri = Uri.parse(link.toString())
+                    if (uri.scheme == "content") {
+                        linkLayout.isErrorEnabled = false
+                        return
+                    }
+                    if (uri.scheme.equals("oppa", true)) {
+                        parseOppaProvider(link.toString())
                         linkLayout.isErrorEnabled = false
                         return
                     }

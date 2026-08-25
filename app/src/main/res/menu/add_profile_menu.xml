@@ -64,6 +64,9 @@
                         android:id="@+id/action_new_juicity"
                         android:title="@string/action_juicity" />
                     <item
+                        android:id="@+id/action_new_oppa"
+                        android:title="@string/action_oppa" />
+                    <item
                         android:id="@+id/action_new_shadowtls"
                         android:title="@string/action_shadowtls" />
                     <item

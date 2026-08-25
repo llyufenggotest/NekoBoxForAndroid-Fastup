@@ -15,6 +15,7 @@ import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean;
 import io.nekohasekai.sagernet.fmt.internal.ChainBean;
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean;
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean;
+import io.nekohasekai.sagernet.fmt.oppa.OppaBean;
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean;
 import io.nekohasekai.sagernet.fmt.shadowsocksr.ShadowsocksRBean;
 import moe.matsuri.nb4a.proxy.anytls.AnyTLSBean;
@@ -175,6 +176,12 @@ public class KryoConverters {
     public static XHttpBean xhttpDeserialize(byte[] bytes) {
         if (JavaUtil.isEmpty(bytes)) return null;
         return deserialize(new XHttpBean(), bytes);
+    }
+
+    @TypeConverter
+    public static OppaBean oppaDeserialize(byte[] bytes) {
+        if (JavaUtil.isEmpty(bytes)) return null;
+        return deserialize(new OppaBean(), bytes);
     }
 
     @TypeConverter

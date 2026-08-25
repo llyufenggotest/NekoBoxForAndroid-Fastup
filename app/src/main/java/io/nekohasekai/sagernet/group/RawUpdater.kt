@@ -6,6 +6,8 @@ import io.nekohasekai.sagernet.SubscriptionFilterMode
 import io.nekohasekai.sagernet.database.*
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.http.HttpBean
+import io.nekohasekai.sagernet.fmt.oppa.OppaBean
+import io.nekohasekai.sagernet.fmt.oppa.parseOppaProvider
 import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.parseHysteria1Json
 import io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean
@@ -52,7 +54,13 @@ object RawUpdater : GroupUpdater() {
 
         val link = subscription.link
         var proxies: List<AbstractBean>
-        if (link.startsWith("content://")) {
+        if (link.startsWith("oppa://")) {
+            proxies = fetchOppaNodes(link)
+            val provider = parseOppaProvider(link)
+            if (proxyGroup.name?.startsWith("Subscription #") == true) {
+                proxyGroup.name = provider.name
+            }
+        } else if (link.startsWith("content://")) {
             val contentText = app.contentResolver.openInputStream(link.toUri())
                 ?.bufferedReader()
                 ?.readText()
@@ -250,6 +258,69 @@ object RawUpdater : GroupUpdater() {
         userInterface?.onUpdateSuccess(
             proxyGroup, changed, added, updated, deleted, duplicate, byUser
         )
+    }
+
+    private fun fetchOppaNodes(link: String): List<AbstractBean> {
+        val provider = parseOppaProvider(link)
+        val endpoint = provider.apiEndpoint.substringBefore('/')
+        require(endpoint.isNotBlank() && endpoint.none { it.isWhitespace() }) { "invalid Oppa provider endpoint" }
+        val baseURL = "https://$endpoint/api/nodes3"
+
+        fun request(url: String, bearer: Boolean): String {
+            val response = Libcore.newHttpClient().apply {
+                trySocks5(DataStore.mixedPort, DataStore.mixedInboundUser, DataStore.mixedInboundPass)
+                tryH3Direct()
+            }.newRequest().apply {
+                setURL(url)
+                setUserAgent("NekoBox Oppa/1")
+                setHeader("Accept", "application/json, text/plain, */*")
+                setHeader("X-Rava-Platform", "android")
+                if (bearer) setHeader("Authorization", "Bearer ${provider.apiToken}")
+                if (DataStore.allowInsecureOnRequest) allowInsecure()
+            }.execute()
+            return Util.getStringBox(response.contentString)
+        }
+
+        val content = runCatching { request(baseURL, true) }.getOrElse {
+            val encoded = java.net.URLEncoder.encode(provider.apiToken, "UTF-8")
+            request("$baseURL?api_token=$encoded", false)
+        }
+        val root = JSONTokener(content).nextValue()
+        val nodes = when (root) {
+            is JSONArray -> root
+            is JSONObject -> when (val data = root.opt("data")) {
+                is JSONArray -> data
+                is JSONObject -> JSONArray().put(data)
+                else -> root.optJSONArray("nodes") ?: if (root.has("host") || root.has("server")) JSONArray().put(root) else JSONArray()
+            }
+            else -> JSONArray()
+        }
+        val result = ArrayList<AbstractBean>()
+        for (index in 0 until nodes.length()) {
+            val node = nodes.optJSONObject(index) ?: continue
+            val host = node.optString("host", node.optString("server", "")).trim()
+            if (host.isEmpty()) continue
+            val password = node.optString("api_token", node.optString("password", provider.apiToken)).trim()
+            val passwordLength = password.toByteArray(Charsets.UTF_8).size
+            if (passwordLength == 0 || passwordLength > 4096) {
+                Logs.w("Ignored Oppa node #$index with invalid credential length=$passwordLength")
+                continue
+            }
+            val forwardHost = node.optString("forwardHost", "").takeUnless { it.equals("null", true) }?.trim().orEmpty()
+            result.add(OppaBean().apply {
+                serverAddress = host
+                serverPort = node.opt("port")?.toString()?.toIntOrNull() ?: 4443
+                this.password = password
+                preConnect = (node.opt("preConnect")?.toString()?.toIntOrNull() ?: 8).coerceIn(0, 64)
+                name = node.optString("remarks", node.optString("name", "Oppa Node"))
+                sni = forwardHost
+                allowInsecure = forwardHost.isBlank()
+                certificatePinSHA256 = ""
+                initializeDefaultValues()
+            })
+        }
+        if (result.isEmpty()) error(app.getString(R.string.no_proxies_found_in_subscription))
+        return result
     }
 
     fun findBodyHeader(content: String, name: String): String? {
