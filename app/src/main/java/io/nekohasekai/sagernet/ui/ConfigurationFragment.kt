@@ -2515,6 +2515,14 @@ class ConfigurationFragment @JvmOverloads constructor(
                 }
 
                 editButton.setOnClickListener {
+                    if (proxyEntity.type == ProxyEntity.TYPE_XHTTP) {
+                        android.widget.Toast.makeText(
+                            it.context,
+                            R.string.special_protocol_not_editable,
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        return@setOnClickListener
+                    }
                     try {
                         it.context.startActivity(
                             proxyEntity.settingIntent(
@@ -2522,10 +2530,11 @@ class ConfigurationFragment @JvmOverloads constructor(
                             )
                         )
                     } catch (e: Exception) {
+                        Logs.w(e)
                         android.widget.Toast.makeText(
                             it.context,
-                            "特殊魔改节点，暂不支持在手机端编辑配置",
-                            android.widget.Toast.LENGTH_SHORT
+                            getString(R.string.profile_edit_failed, e.readableMessage),
+                            android.widget.Toast.LENGTH_LONG
                         ).show()
                     }
                 }
@@ -2556,6 +2565,14 @@ class ConfigurationFragment @JvmOverloads constructor(
                     popup.setOnMenuItemClickListener { menuItem ->
                         when (menuItem.itemId) {
                             R.id.action_edit -> {
+                                if (proxyEntity.type == ProxyEntity.TYPE_XHTTP) {
+                                    android.widget.Toast.makeText(
+                                        it.context,
+                                        R.string.special_protocol_not_editable,
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                    return@setOnMenuItemClickListener true
+                                }
                                 try {
                                     it.context.startActivity(
                                         proxyEntity.settingIntent(
@@ -2563,10 +2580,11 @@ class ConfigurationFragment @JvmOverloads constructor(
                                         )
                                     )
                                 } catch (e: Exception) {
+                                    Logs.w(e)
                                     android.widget.Toast.makeText(
                                         it.context,
-                                        "特殊魔改节点，暂不支持在手机端编辑配置",
-                                        android.widget.Toast.LENGTH_SHORT
+                                        getString(R.string.profile_edit_failed, e.readableMessage),
+                                        android.widget.Toast.LENGTH_LONG
                                     ).show()
                                 }
                                 true

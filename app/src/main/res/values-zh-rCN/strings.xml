@@ -599,6 +599,9 @@
     <string name="app_list_permission_denied">无法读取已安装的应用。\n这通常是由于系统限制了应用的读取权限（例如某些中国厂商系统）。\n请在系统设置中授予权限。</string>
     <string name="open_app_settings">打开系统设置</string>
 
+    <string name="special_protocol_not_editable">此特殊魔改协议按设计不允许在手机端编辑</string>
+    <string name="profile_edit_failed">无法编辑节点：%s</string>
+
     <!-- Oppa Protocol -->
     <string name="action_oppa" translatable="false">Oppa</string>
     <string name="oppa_preconnect">预连接数量</string>
