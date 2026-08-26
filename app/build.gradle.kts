@@ -89,7 +89,7 @@ dependencies {
 }
 
 val buildHevTun by tasks.registering {
-    val hevAbis = listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+    val hevAbis = listOf("arm64-v8a")
     doLast {
         val missing = hevAbis.any { !file("src/main/jniLibs/$it/libhev-socks5-tunnel.so").exists() }
         if (missing || System.getenv("FORCE_HEV") == "1") {
