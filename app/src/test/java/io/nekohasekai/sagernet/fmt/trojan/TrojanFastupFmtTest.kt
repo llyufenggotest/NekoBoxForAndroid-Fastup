@@ -13,6 +13,7 @@ class TrojanFastupFmtTest {
         val bean = parseTrojan(link)
 
         assertEquals("synthetic-password#fastup", bean.password)
+        bean.initializeDefaultValues()
         val exported = bean.toUriVMessVLESSTrojan(true)
         assertTrue(exported.contains("synthetic-password%23fastup@"))
         assertEquals(bean.password, parseTrojan(exported).password)
