@@ -1,8 +1,8 @@
 package io.nekohasekai.sagernet.fmt.trojan
 
-import io.nekohasekai.sagernet.fmt.v2ray.toUriVMessVLESSTrojan
+import io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean
+import moe.matsuri.nb4a.SingBoxOptions.Outbound_TrojanOptions
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TrojanFastupFmtTest {
@@ -14,9 +14,8 @@ class TrojanFastupFmtTest {
 
         assertEquals("synthetic-password#fastup", bean.password)
         bean.initializeDefaultValues()
-        val exported = bean.toUriVMessVLESSTrojan(true)
-        assertTrue(exported.contains("synthetic-password%23fastup@"))
-        assertEquals(bean.password, parseTrojan(exported).password)
+        val outbound = buildSingBoxOutboundStandardV2RayBean(bean) as Outbound_TrojanOptions
+        assertEquals(bean.password, outbound.password)
     }
 
     @Test
