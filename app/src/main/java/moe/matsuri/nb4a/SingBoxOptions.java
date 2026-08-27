@@ -2190,6 +2190,8 @@ public class SingBoxOptions {
 
         public String password;
 
+        public String mpw;
+
         public String network;
 
         public OutboundTLSOptions tls;
@@ -3865,6 +3867,8 @@ public class SingBoxOptions {
         // End of public ServerOptions ;
 
         public String password;
+
+        public String mpw;
 
         public String network;
 

@@ -13,19 +13,22 @@ import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean;
 public class TrojanBean extends StandardV2RayBean {
 
     public String password;
+    public String mpw;
 
     @Override
     public void initializeDefaultValues() {
         super.initializeDefaultValues();
         if (security == null || security.isEmpty()) security = "tls";
         if (password == null) password = "";
+        if (mpw == null) mpw = "";
     }
 
     @Override
     public void serialize(ByteBufferOutput output) {
-        output.writeInt(2);
+        output.writeInt(3);
         super.serialize(output);
         output.writeString(password);
+        output.writeString(mpw);
     }
 
     @Override
@@ -34,6 +37,7 @@ public class TrojanBean extends StandardV2RayBean {
         if (version >= 2) {
             super.deserialize(input); // StandardV2RayBean
             password = input.readString();
+            if (version >= 3) mpw = input.readString();
         } else {
             // From AbstractBean
             serverAddress = input.readString();
@@ -45,6 +49,7 @@ public class TrojanBean extends StandardV2RayBean {
             alpn = input.readString();
             if (version == 1) allowInsecure = input.readBoolean();
         }
+        if (mpw == null) mpw = "";
     }
 
     @NotNull

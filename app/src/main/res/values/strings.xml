@@ -122,6 +122,7 @@
     <string name="password_opt">Password (Optional)</string>
     <string name="key_opt">Key (Optional)</string>
     <string name="password">Password</string>
+    <string name="fastup_mpw" translatable="false">Fastup MPW</string>
     <string name="enc_method">Encrypt Method</string>
     <string name="protocol">Protocol</string>
     <string name="protocol_param">Protocol Param</string>

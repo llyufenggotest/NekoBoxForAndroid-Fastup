@@ -27,6 +27,7 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
     private val serverAddress = pbm.add(PreferenceBinding(Type.Text, "serverAddress"))
     private val serverPort = pbm.add(PreferenceBinding(Type.TextToInt, "serverPort"))
     private val uuid = pbm.add(PreferenceBinding(Type.Text, "uuid"))
+    private val mpw = pbm.add(PreferenceBinding(Type.Text, "mpw"))
     private val username = pbm.add(PreferenceBinding(Type.Text, "username"))
     private val password = pbm.add(PreferenceBinding(Type.Text, "password"))
     private val alterId = pbm.add(PreferenceBinding(Type.TextToInt, "alterId"))
@@ -123,6 +124,8 @@ abstract class StandardV2RaySettingsActivity : ProfileSettingsActivity<StandardV
 
         type.preference.isVisible = !isHttp
         uuid.preference.isVisible = !isHttp
+        mpw.preference.isVisible = tmpBean is TrojanBean
+        mpw.preference.summaryProvider = PasswordSummaryProvider
         packetEncoding.preference.isVisible = isVmess || isVless
         alterId.preference.isVisible = isVmess
         encryption.preference.isVisible = isVmess || isVless

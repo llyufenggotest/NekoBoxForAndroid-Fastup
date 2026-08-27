@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
+import io.nekohasekai.sagernet.fmt.trojan.fastupMpwQueryParameter
 import io.nekohasekai.sagernet.ktx.*
 import moe.matsuri.nb4a.SingBoxOptions.*
 import moe.matsuri.nb4a.utils.NGUtil
@@ -514,6 +515,10 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
         if (encryption != "auto") builder.addQueryParameter("flow", encryption)
     }
 
+    if (this is TrojanBean) {
+        fastupMpwQueryParameter()?.let { builder.addQueryParameter("mpw", it) }
+    }
+
     when (type) {
         "tcp" -> {}
         "ws", "http", "httpupgrade" -> {
@@ -876,6 +881,7 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 server = bean.serverAddress
                 server_port = bean.serverPort
                 password = bean.password
+                mpw = bean.fastupMpwQueryParameter()
                 tls = buildSingBoxOutboundTLS(bean)
                 transport = buildSingBoxOutboundStreamSettings(bean)
             }

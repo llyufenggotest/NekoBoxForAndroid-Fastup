@@ -44,6 +44,48 @@ import androidx.core.net.toUri
 @Suppress("EXPERIMENTAL_API_USAGE")
 object RawUpdater : GroupUpdater() {
 
+    internal data class SingBoxTrojanFields(
+        val tag: String,
+        val server: String,
+        val serverPort: Int,
+        val password: String,
+        val mpw: String,
+        val tlsEnabled: Boolean = true,
+        val serverName: String = "",
+        val insecure: Boolean = false,
+    )
+
+    internal fun parseSingBoxTrojan(fields: SingBoxTrojanFields): TrojanBean = TrojanBean().apply {
+        name = fields.tag
+        serverAddress = fields.server
+        serverPort = fields.serverPort
+        password = if (fields.mpw.isNotBlank() && !fields.password.endsWith("#fastup")) {
+            "${fields.password}#fastup"
+        } else {
+            fields.password
+        }
+        mpw = fields.mpw
+        security = if (fields.tlsEnabled) "tls" else ""
+        sni = fields.serverName
+        allowInsecure = fields.insecure
+        initializeDefaultValues()
+    }
+
+    internal fun parseSingBoxTrojan(outbound: JSONObject): TrojanBean {
+        require(outbound.optString("type") == "trojan")
+        val tls = outbound.optJSONObject("tls")
+        return parseSingBoxTrojan(SingBoxTrojanFields(
+            tag = outbound.optString("tag"),
+            server = outbound.getString("server"),
+            serverPort = outbound.getInt("server_port"),
+            password = outbound.optString("password"),
+            mpw = outbound.optString("mpw"),
+            tlsEnabled = tls?.optBoolean("enabled", true) ?: true,
+            serverName = tls?.optString("server_name").orEmpty(),
+            insecure = tls?.optBoolean("insecure", false) ?: false,
+        ))
+    }
+
     @SuppressLint("Recycle")
     override suspend fun doUpdate(
         proxyGroup: ProxyGroup,
@@ -1106,11 +1148,15 @@ object RawUpdater : GroupUpdater() {
                                 it
                             }
                         }.map {
-                            ConfigBean().apply {
-                                applyDefaultValues()
-                                type = 1
-                                config = it.toStringPretty()
-                                name = it.getStr("tag")
+                            if (it.optString("type") == "trojan" && it.optString("mpw").isNotBlank()) {
+                                parseSingBoxTrojan(it)
+                            } else {
+                                ConfigBean().apply {
+                                    applyDefaultValues()
+                                    type = 1
+                                    config = it.toStringPretty()
+                                    name = it.getStr("tag")
+                                }
                             }
                         }
                 }

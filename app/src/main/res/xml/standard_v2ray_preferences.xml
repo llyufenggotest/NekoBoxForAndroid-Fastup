@@ -34,6 +34,11 @@
             app:key="uuid"
             app:title="@string/uuid" />
         <EditTextPreference
+            app:dialogLayout="@layout/layout_password_dialog"
+            app:icon="@drawable/ic_settings_password"
+            app:key="mpw"
+            app:title="@string/fastup_mpw" />
+        <EditTextPreference
             app:icon="@drawable/ic_maps_360"
             app:key="alterId"
             app:title="@string/alter_id"
