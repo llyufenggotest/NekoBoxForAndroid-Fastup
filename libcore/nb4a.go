@@ -3,6 +3,7 @@ package libcore
 import (
 	"fmt"
 	"libcore/device"
+	"libcore/tunnetcontrol"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -83,6 +84,14 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 			extractAssets()
 		}
 	}()
+}
+
+func SyncTunNet(endpoint, noBackupDirectory, appVersion, currentURL string) error {
+	return tunnetcontrol.Sync(endpoint, noBackupDirectory, appVersion, currentURL)
+}
+
+func TunNetSnapshotExists(noBackupDirectory string) bool {
+	return tunnetcontrol.SnapshotExists(noBackupDirectory)
 }
 
 func sendFdToProtect(fd int, path string) error {

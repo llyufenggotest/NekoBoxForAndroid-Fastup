@@ -1,0 +1,192 @@
+package tunnetcontrol
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math/big"
+	"net"
+	"strings"
+)
+
+type syncWire struct {
+	SchemaVersion int64           `json:"schema_version"`
+	Release       json.RawMessage `json:"release"`
+	Access        Access          `json:"access"`
+	Runtime       *runtimeWire    `json:"runtime"`
+}
+
+type runtimeWire struct {
+	ClientID        string          `json:"client_id"`
+	Traffic         json.RawMessage `json:"traffic"`
+	Network         json.RawMessage `json:"network"`
+	ActiveEntryNode string          `json:"active_entry_node"`
+	EntryNodes      []SnapshotEntry `json:"entry_nodes"`
+	Hosts           []SnapshotHost  `json:"hosts"`
+}
+
+type MapOptions struct {
+	DataAuthority     string
+	PreviousEntryNode string
+	RouteProber       RouteProber
+}
+
+func ResolveDataAuthority(syncResponse json.RawMessage, inputAuthority string) (string, error) {
+	var wire syncWire
+	if err := json.Unmarshal(syncResponse, &wire); err != nil || wire.Runtime == nil {
+		return "", errors.New("invalid TunNet sync runtime for authority selection")
+	}
+	inputAuthority = strings.ToLower(strings.TrimSpace(inputAuthority))
+	if !validDNSAuthority(inputAuthority) {
+		return "", errors.New("invalid TunNet data authority")
+	}
+	labels := strings.Split(inputAuthority, ".")
+	baseDomain := strings.Join(labels[1:], ".")
+	selected := -1
+	for index := range wire.Runtime.Hosts {
+		host := wire.Runtime.Hosts[index]
+		if !host.Online || strings.TrimSpace(host.Slug) == "" || strings.TrimSpace(host.VLESSEncryptionKey) == "" {
+			continue
+		}
+		if selected < 0 || host.LoadPercent < wire.Runtime.Hosts[selected].LoadPercent || host.LoadPercent == wire.Runtime.Hosts[selected].LoadPercent && host.Slug < wire.Runtime.Hosts[selected].Slug {
+			selected = index
+		}
+	}
+	if selected < 0 {
+		return "", errors.New("TunNet runtime has no usable online host")
+	}
+	authority := strings.ToLower(wire.Runtime.Hosts[selected].Slug + "." + baseDomain)
+	if !validDNSAuthority(authority) {
+		return "", errors.New("TunNet selected host produced invalid authority")
+	}
+	return authority, nil
+}
+
+func MapSnapshot(bootstrap, syncResponse json.RawMessage, echConfig ECHConfig, identity *Identity) (*Snapshot, error) {
+	return MapSnapshotWithOptions(context.Background(), bootstrap, syncResponse, echConfig, identity, MapOptions{})
+}
+
+func MapSnapshotWithOptions(ctx context.Context, bootstrapRaw, syncResponse json.RawMessage, echConfig ECHConfig, identity *Identity, options MapOptions) (*Snapshot, error) {
+	if identity == nil {
+		return nil, errors.New("missing TunNet identity")
+	}
+	var wire syncWire
+	if err := json.Unmarshal(syncResponse, &wire); err != nil {
+		return nil, fmt.Errorf("decode TunNet sync envelope: %w", err)
+	}
+	if wire.SchemaVersion != 2 || wire.Runtime == nil {
+		return nil, fmt.Errorf("invalid TunNet sync schema/runtime: %d", wire.SchemaVersion)
+	}
+	if wire.Access.State != "ready" {
+		return nil, fmt.Errorf("TunNet sync access is not ready: %q", wire.Access.State)
+	}
+	if wire.Runtime.ClientID != "" && !strings.EqualFold(wire.Runtime.ClientID, identity.ClientID) {
+		return nil, errors.New("TunNet sync client ID does not match local identity")
+	}
+
+	var bootstrap BootstrapResponse
+	if err := json.Unmarshal(bootstrapRaw, &bootstrap); err != nil {
+		return nil, fmt.Errorf("decode TunNet ready bootstrap: %w", err)
+	}
+	if bootstrap.SchemaVersion != 2 || bootstrap.Access.State != "ready" {
+		return nil, errors.New("TunNet ready bootstrap is invalid")
+	}
+	var bootRuntime runtimeWire
+	if err := json.Unmarshal(bootstrap.Runtime, &bootRuntime); err != nil {
+		return nil, fmt.Errorf("decode TunNet bootstrap runtime: %w", err)
+	}
+	// Sync is authoritative when it carries a catalog; bootstrap retains network
+	// fields that may be omitted by later sync publications.
+	if len(wire.Runtime.EntryNodes) == 0 || len(wire.Runtime.Hosts) == 0 {
+		return nil, errors.New("TunNet sync runtime catalog is empty")
+	}
+	entries := wire.Runtime.EntryNodes
+	hosts := wire.Runtime.Hosts
+
+	authority, err := ResolveDataAuthority(syncResponse, options.DataAuthority)
+	if err != nil {
+		return nil, err
+	}
+	selectedHost := -1
+	for index := range hosts {
+		if strings.EqualFold(hosts[index].Slug, strings.SplitN(authority, ".", 2)[0]) {
+			selectedHost = index
+			break
+		}
+	}
+	if selectedHost < 0 {
+		return nil, errors.New("resolved TunNet host is absent from runtime")
+	}
+	hosts[selectedHost].Authority = authority
+
+	entryName := strings.TrimSpace(options.PreviousEntryNode)
+	entryIndex := -1
+	if entryName == "" && strings.TrimSpace(bootRuntime.ActiveEntryNode) != "" {
+		entryName = bootRuntime.ActiveEntryNode
+	}
+	if entryName != "" {
+		for index := range entries {
+			if entries[index].Name == entryName {
+				entryIndex = index
+				break
+			}
+		}
+		if entryIndex < 0 {
+			return nil, errors.New("persisted TunNet entry is absent from runtime")
+		}
+	} else {
+		choice, err := rand.Int(rand.Reader, big.NewInt(int64(len(entries))))
+		if err != nil {
+			return nil, fmt.Errorf("choose TunNet entry: %w", err)
+		}
+		entryIndex = int(choice.Int64())
+		entryName = entries[entryIndex].Name
+	}
+	if strings.TrimSpace(entryName) == "" {
+		return nil, errors.New("selected TunNet entry has no name")
+	}
+
+	prober := options.RouteProber
+	if prober == nil {
+		prober = TCPRouteProber{}
+	}
+	route, err := SelectRouteIP(ctx, entries[entryIndex].IPv4, prober)
+	if err != nil {
+		return nil, err
+	}
+	path, err := GenerateXHTTPPath()
+	if err != nil {
+		return nil, fmt.Errorf("generate TunNet XHTTP path: %w", err)
+	}
+	return &Snapshot{
+		SchemaVersion:   snapshotSchema,
+		ClientID:        strings.ToLower(identity.ClientID),
+		ActiveEntryNode: entryName,
+		SelectedHost:    hosts[selectedHost].Slug,
+		ECHConfig:       SnapshotECH{ConfigList: echConfig.ConfigList, ExpiresAt: echConfig.ExpiresAt},
+		EntryNodes:      entries,
+		Hosts:           hosts,
+		ValidatedRoute:  route,
+		XHTTPAuthority:  authority,
+		XHTTPPath:       path,
+	}, nil
+}
+
+func validDNSAuthority(value string) bool {
+	if !validAuthority(value) || len(value) > 253 || net.ParseIP(value) != nil || !strings.Contains(value, ".") {
+		return false
+	}
+	for _, label := range strings.Split(value, ".") {
+		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, r := range label {
+			if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-') {
+				return false
+			}
+		}
+	}
+	return true
+}

@@ -2,6 +2,7 @@ package io.nekohasekai.sagernet.fmt.v2ray
 
 import android.text.TextUtils
 import com.google.gson.Gson
+import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
@@ -17,6 +18,18 @@ import org.json.JSONObject
 private val supportedKcpHeaderType = arrayOf(
     "none", "srtp", "utp", "wechat-video", "dtls", "wireguard", "dns"
 )
+
+private const val TUN_NET_SUFFIX = "#tunnet"
+private const val TUN_NET_SNAPSHOT_FILE = "tunnet/snapshot.json"
+
+private fun tunNetSnapshotPath(): String =
+    SagerNet.application.noBackupFilesDir.resolve(TUN_NET_SNAPSHOT_FILE).absolutePath
+
+fun VMessBean.isTunNet(): Boolean =
+    isVLESS && uuid.endsWith(TUN_NET_SUFFIX, ignoreCase = true)
+
+fun VMessBean.tunNetRuntimeUuid(): String =
+    if (isTunNet()) uuid.dropLast(TUN_NET_SUFFIX.length) else uuid
 
 data class VmessQRCode(
     var v: String = "",
@@ -825,7 +838,10 @@ fun buildSingBoxOutboundTLS(bean: StandardV2RayBean): OutboundTLSOptions? {
     }
 }
 
-fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
+fun buildSingBoxOutboundStandardV2RayBean(
+    bean: StandardV2RayBean,
+    tunNetSnapshotPathProvider: () -> String = ::tunNetSnapshotPath,
+): Outbound {
     when (bean) {
         is HttpBean -> {
             return Outbound_HTTPOptions().apply {
@@ -843,7 +859,13 @@ fun buildSingBoxOutboundStandardV2RayBean(bean: StandardV2RayBean): Outbound {
                 type = "vless"
                 server = bean.serverAddress
                 server_port = bean.serverPort
-                uuid = bean.uuid
+                uuid = bean.tunNetRuntimeUuid()
+                if (bean.isTunNet()) {
+                    tunnet = Outbound_VLESSOptions.TunNetOptions().apply {
+                        snapshot = tunNetSnapshotPathProvider()
+                        front_proxy_strict = true
+                    }
+                }
                 if (bean.encryption.isNotBlank() && bean.encryption != "auto") {
                     flow = bean.encryption
                 }

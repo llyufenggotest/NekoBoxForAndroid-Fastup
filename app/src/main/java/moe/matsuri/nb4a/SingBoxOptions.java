@@ -4273,6 +4273,14 @@ public class SingBoxOptions {
 
         public String packet_encoding;
 
+        public TunNetOptions tunnet;
+
+        public static class TunNetOptions {
+            public String snapshot;
+
+            public Boolean front_proxy_strict;
+        }
+
     }
 
     public static class Outbound_TUICOptions extends Outbound {
@@ -4799,7 +4807,7 @@ public class SingBoxOptions {
 
         public Integer server_port;
 
-        // Generate note: nested type OutboundTLSOptionsContainer
+        // Generate note: nested type OutboundTLSOptions
         public OutboundTLSOptions tls;
 
         public String password;

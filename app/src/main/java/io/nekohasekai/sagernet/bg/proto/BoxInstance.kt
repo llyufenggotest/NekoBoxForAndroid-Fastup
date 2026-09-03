@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.bg.proto
 
 import android.os.SystemClock
+import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.AbstractInstance
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
@@ -12,6 +13,8 @@ import io.nekohasekai.sagernet.fmt.hysteria.HysteriaBean
 import io.nekohasekai.sagernet.fmt.hysteria.buildHysteria1Config
 import io.nekohasekai.sagernet.fmt.mieru.MieruBean
 import io.nekohasekai.sagernet.fmt.mieru.buildMieruConfig
+import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
+import io.nekohasekai.sagernet.fmt.v2ray.isTunNet
 import io.nekohasekai.sagernet.fmt.naive.NaiveBean
 import io.nekohasekai.sagernet.fmt.naive.buildNaiveConfig
 import io.nekohasekai.sagernet.fmt.trojan_go.TrojanGoBean
@@ -55,6 +58,34 @@ abstract class BoxInstance(
 
     open suspend fun init() {
         buildConfig()
+        val tunNetAuthorities = config.trafficMap.values
+            .asSequence()
+            .flatten()
+            .mapNotNull { entity ->
+                (entity.requireBean() as? VMessBean)
+                    ?.takeIf { it.isTunNet() }
+                    ?.serverAddress
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+            }
+            .distinct()
+            .toList()
+        check(tunNetAuthorities.size <= 1) {
+            "A single sing-box instance cannot use multiple TunNet data authorities"
+        }
+        tunNetAuthorities.singleOrNull()?.let { authority ->
+            withContext(Dispatchers.IO) {
+                Libcore.syncTunNet(
+                    "https://client-api.nexttun.net/api/v1/client",
+                    SagerNet.application.noBackupFilesDir.absolutePath,
+                    BuildConfig.VERSION_NAME,
+                    authority,
+                )
+            }
+            check(Libcore.tunNetSnapshotExists(SagerNet.application.noBackupFilesDir.absolutePath)) {
+                "TunNet synchronization did not produce a snapshot"
+            }
+        }
         for ((chain) in config.externalIndex) {
             chain.entries.forEachIndexed { index, (port, profile) ->
                 when (val bean = profile.requireBean()) {
