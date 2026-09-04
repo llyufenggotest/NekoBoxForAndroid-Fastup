@@ -90,6 +90,22 @@ func SyncTunNet(endpoint, noBackupDirectory, appVersion, currentURL, entryNode, 
 	return tunnetcontrol.Sync(endpoint, noBackupDirectory, appVersion, currentURL, entryNode, hostSlug)
 }
 
+func PrepareTunNetBatch(endpoint, baseDir, appVersion string) (string, error) {
+	return tunnetcontrol.PrepareBatch(endpoint, baseDir, appVersion)
+}
+
+func MaterializeTunNetBatchSnapshot(token, entryNode, hostSlug, snapshotPath string) error {
+	return tunnetcontrol.MaterializeBatchSnapshot(token, entryNode, hostSlug, snapshotPath)
+}
+
+func ResolveTunNetBatchIngress(token, entryNode string) (string, error) {
+	return tunnetcontrol.ResolveBatchIngress(token, entryNode)
+}
+
+func ReleaseTunNetBatch(token string) error {
+	return tunnetcontrol.ReleaseBatch(token)
+}
+
 func TunNetSnapshotExists(noBackupDirectory string) bool {
 	return tunnetcontrol.SnapshotExists(noBackupDirectory)
 }

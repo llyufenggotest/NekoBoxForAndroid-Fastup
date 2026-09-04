@@ -13,8 +13,13 @@ import libcore.Libcore
 import moe.matsuri.nb4a.net.LocalResolverImpl
 import kotlin.coroutines.suspendCoroutine
 
-class TestInstance(profile: ProxyEntity, val link: String, private val timeout: Int) :
-    BoxInstance(profile) {
+class TestInstance(
+    profile: ProxyEntity,
+    val link: String,
+    private val timeout: Int,
+    preparedTunNetBatch: String? = null,
+    tunNetSnapshotPath: String? = null,
+) : BoxInstance(profile, preparedTunNetBatch, tunNetSnapshotPath) {
 
     suspend fun doTest(): Int {
         return suspendCoroutine { c ->
@@ -41,7 +46,11 @@ class TestInstance(profile: ProxyEntity, val link: String, private val timeout: 
     }
 
     override fun buildConfig() {
-        config = buildConfig(profile, true)
+        config = buildConfig(
+            profile,
+            forTest = true,
+            tunNetSnapshotPathProvider = tunNetSnapshotPath?.let { path -> { path } },
+        )
     }
 
     override suspend fun loadConfig() {

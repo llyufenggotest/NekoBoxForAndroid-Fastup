@@ -52,6 +52,7 @@ import io.nekohasekai.sagernet.R
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.TrafficData
 import io.nekohasekai.sagernet.bg.BaseService
+import io.nekohasekai.sagernet.bg.proto.TUN_NET_CLIENT_VERSION
 import io.nekohasekai.sagernet.bg.proto.UrlTest
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.GroupManager
@@ -63,8 +64,12 @@ import io.nekohasekai.sagernet.database.preference.OnPreferenceDataStoreChangeLi
 import io.nekohasekai.sagernet.databinding.LayoutProfileListBinding
 import io.nekohasekai.sagernet.databinding.LayoutProgressListBinding
 import io.nekohasekai.sagernet.fmt.AbstractBean
+import io.nekohasekai.sagernet.fmt.buildConfig
 import io.nekohasekai.sagernet.fmt.oppa.parseOppaProvider
 import io.nekohasekai.sagernet.fmt.toUniversalLink
+import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
+import io.nekohasekai.sagernet.fmt.v2ray.isTunNet
+import io.nekohasekai.sagernet.fmt.v2ray.tunNetSelection
 import io.nekohasekai.sagernet.group.GroupUpdater
 import io.nekohasekai.sagernet.group.RawUpdater
 import io.nekohasekai.sagernet.ktx.FixedLinearLayoutManager
@@ -134,6 +139,8 @@ import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URLDecoder
 import java.net.UnknownHostException
+import java.io.File
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
@@ -1044,15 +1051,50 @@ class ConfigurationFragment @JvmOverloads constructor(
                 }
                 return@filter false
             }
+            val tunNetSelections = profilesList.associateWith { profile ->
+                runCatching {
+                    buildConfig(profile, forTest = true).trafficMap.values.flatten()
+                        .mapNotNull { (it.requireBean() as? VMessBean)?.tunNetSelection() }
+                        .distinct()
+                        .singleOrNull()
+                }.getOrNull()
+            }
             test.proxyN = profilesList.size
+            val tunNetPingBatch = if (tunNetSelections.values.any { it != null }) {
+                withContext(Dispatchers.IO) {
+                    Libcore.prepareTunNetBatch(
+                        "https://client-api.nexttun.net/api/v1/client",
+                        SagerNet.application.noBackupFilesDir.absolutePath,
+                        TUN_NET_CLIENT_VERSION,
+                    )
+                }
+            } else null
             val profiles = ConcurrentLinkedQueue(profilesList)
-            repeat(DataStore.connectionTestConcurrent) {
-                testJobs.add(launch(Dispatchers.IO) {
-                    while (isActive) {
+            try {
+                repeat(DataStore.connectionTestConcurrent) {
+                    testJobs.add(launch(Dispatchers.IO) {
+                        while (isActive) {
                         val profile = profiles.poll() ?: break
 
                         profile.status = 0
-                        var address = profile.requireBean().serverAddress
+                        val bean = profile.requireBean()
+                        val tunNetSelection = tunNetSelections[profile]
+                        var address = bean.serverAddress
+                        var port = bean.serverPort
+                        if (tunNetSelection != null && tunNetPingBatch != null) {
+                            try {
+                                val ingress = org.json.JSONObject(
+                                    Libcore.resolveTunNetBatchIngress(tunNetPingBatch, tunNetSelection.entryNode)
+                                )
+                                address = ingress.getString("address")
+                                port = ingress.optInt("port", 443)
+                            } catch (e: Exception) {
+                                profile.status = 3
+                                profile.error = e.readableMessage
+                                test.update(profile)
+                                continue
+                            }
+                        }
                         if (!address.isIpAddress()) {
                             val customDns = group.customDirectDns.takeIf { !it.isNullOrBlank() }
                                 ?: DataStore.directDns.split("\n").firstOrNull { it.isNotBlank() && !it.startsWith("#") }
@@ -1082,7 +1124,7 @@ class ConfigurationFragment @JvmOverloads constructor(
                                     val start = SystemClock.elapsedRealtime()
                                     socket.connect(
                                         InetSocketAddress(
-                                            address, profile.requireBean().serverPort
+                                            address, port
                                         ), 3000
                                     )
                                     if (!isActive) break
@@ -1130,7 +1172,12 @@ class ConfigurationFragment @JvmOverloads constructor(
                 })
             }
 
-            testJobs.joinAll()
+                testJobs.joinAll()
+            } finally {
+                if (tunNetPingBatch != null) {
+                    runCatching { Libcore.releaseTunNetBatch(tunNetPingBatch) }
+                }
+            }
 
             runOnMainDispatcher {
                 test.cancel()
@@ -1174,32 +1221,65 @@ class ConfigurationFragment @JvmOverloads constructor(
         val mainJob = runOnDefaultDispatcher {
             val profilesList = SagerDatabase.proxyDao.getByGroup(group.id)
             test.proxyN = profilesList.size
-            val profiles = ConcurrentLinkedQueue(profilesList)
-            repeat(DataStore.connectionTestConcurrent) {
-                testJobs.add(launch(Dispatchers.IO) {
-                    val urlTest = UrlTest() // note: this is NOT in bg process
-                    while (isActive) {
-                        val profile = profiles.poll() ?: break
-                        profile.status = 0
-
-                        try {
-                            val result = urlTest.doTest(profile)
-                            profile.status = 1
-                            profile.ping = result
-                        } catch (e: PluginManager.PluginNotFoundException) {
-                            profile.status = 2
-                            profile.error = e.readableMessage
-                        } catch (e: Exception) {
-                            profile.status = 3
-                            profile.error = e.readableMessage
-                        }
-
-                        test.update(profile)
-                    }
-                })
+            val tunNetSelections = profilesList.associateWith { profile ->
+                runCatching {
+                    buildConfig(profile, forTest = true).trafficMap.values.flatten()
+                        .mapNotNull { (it.requireBean() as? VMessBean)?.tunNetSelection() }
+                        .distinct()
+                        .singleOrNull()
+                }.getOrNull()
             }
+            val batchDirectory = File(
+                SagerNet.application.noBackupFilesDir,
+                "tunnet/tests/${UUID.randomUUID()}",
+            )
+            val hasFixedTunNet = tunNetSelections.values.any { it != null }
+            val tunNetBatch = if (hasFixedTunNet) {
+                withContext(Dispatchers.IO) {
+                    Libcore.prepareTunNetBatch(
+                        "https://client-api.nexttun.net/api/v1/client",
+                        SagerNet.application.noBackupFilesDir.absolutePath,
+                        TUN_NET_CLIENT_VERSION,
+                    )
+                }
+            } else null
+            val profiles = ConcurrentLinkedQueue(profilesList)
+            try {
+                repeat(DataStore.connectionTestConcurrent) {
+                    testJobs.add(launch(Dispatchers.IO) {
+                        val urlTest = UrlTest() // note: this is NOT in bg process
+                        while (isActive) {
+                            val profile = profiles.poll() ?: break
+                            profile.status = 0
 
-            testJobs.joinAll()
+                            try {
+                                val selection = tunNetSelections[profile]
+                                val snapshotPath = if (selection != null && tunNetBatch != null) {
+                                    File(batchDirectory, "${profile.id}-${UUID.randomUUID()}/snapshot.json").absolutePath
+                                } else null
+                                val result = urlTest.doTest(profile, tunNetBatch.takeIf { selection != null }, snapshotPath)
+                                profile.status = 1
+                                profile.ping = result
+                            } catch (e: PluginManager.PluginNotFoundException) {
+                                profile.status = 2
+                                profile.error = e.readableMessage
+                            } catch (e: Exception) {
+                                profile.status = 3
+                                profile.error = e.readableMessage
+                            }
+
+                            test.update(profile)
+                        }
+                    })
+                }
+
+                testJobs.joinAll()
+            } finally {
+                if (tunNetBatch != null) {
+                    runCatching { Libcore.releaseTunNetBatch(tunNetBatch) }
+                }
+                batchDirectory.deleteRecursively()
+            }
 
             runOnMainDispatcher {
                 test.cancel()

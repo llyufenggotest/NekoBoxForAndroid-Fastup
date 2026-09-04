@@ -8,8 +8,18 @@ class UrlTest {
     val link = DataStore.connectionTestURL
     private val timeout = DataStore.connectionTestTimeout
 
-    suspend fun doTest(profile: ProxyEntity): Int {
-        return TestInstance(profile, link, timeout).doTest()
+    suspend fun doTest(
+        profile: ProxyEntity,
+        preparedTunNetBatch: String? = null,
+        tunNetSnapshotPath: String? = null,
+    ): Int {
+        return TestInstance(
+            profile,
+            link,
+            timeout,
+            preparedTunNetBatch,
+            tunNetSnapshotPath,
+        ).doTest()
     }
 
 }

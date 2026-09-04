@@ -25,7 +25,9 @@ import io.nekohasekai.sagernet.fmt.juicity.buildSingBoxOutboundJuicityBean
 import io.nekohasekai.sagernet.fmt.oppa.OppaBean
 import io.nekohasekai.sagernet.fmt.oppa.buildSingBoxOutboundOppaBean
 import io.nekohasekai.sagernet.fmt.v2ray.StandardV2RayBean
+import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.buildSingBoxOutboundStandardV2RayBean
+import io.nekohasekai.sagernet.fmt.v2ray.isTunNet
 import io.nekohasekai.sagernet.fmt.shadowsocksr.ShadowsocksRBean
 import io.nekohasekai.sagernet.fmt.shadowsocksr.buildSingBoxOutboundShadowsocksRBean
 import io.nekohasekai.sagernet.fmt.snell.SnellBean
@@ -105,7 +107,10 @@ private fun serverHostOf(bean: AbstractBean): String? {
 }
 
 fun buildConfig(
-    proxy: ProxyEntity, forTest: Boolean = false, forExport: Boolean = false
+    proxy: ProxyEntity,
+    forTest: Boolean = false,
+    forExport: Boolean = false,
+    tunNetSnapshotPathProvider: (() -> String)? = null,
 ): ConfigBuildResult {
 
     if (proxy.type == TYPE_CONFIG) {
@@ -450,7 +455,13 @@ fun buildConfig(
                             buildSingBoxOutboundShadowTLSBean(bean)
 
                         is StandardV2RayBean -> // http/trojan/vmess/vless
-                            buildSingBoxOutboundStandardV2RayBean(bean)
+                            if (tunNetSnapshotPathProvider != null &&
+                                (bean as? VMessBean)?.isTunNet() == true
+                            ) {
+                                buildSingBoxOutboundStandardV2RayBean(bean, tunNetSnapshotPathProvider)
+                            } else {
+                                buildSingBoxOutboundStandardV2RayBean(bean)
+                            }
 
                         is HysteriaBean ->
                             buildSingBoxOutboundHysteriaBean(bean)

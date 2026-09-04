@@ -44,7 +44,9 @@ fun activeTunNetBeans(
 }
 
 abstract class BoxInstance(
-    val profile: ProxyEntity
+    val profile: ProxyEntity,
+    protected val preparedTunNetBatch: String? = null,
+    protected val tunNetSnapshotPath: String? = null,
 ) : AbstractInstance {
 
     lateinit var config: ConfigBuildResult
@@ -64,7 +66,7 @@ abstract class BoxInstance(
     }
 
     protected open fun buildConfig() {
-        config = buildConfig(profile)
+        config = buildConfig(profile, tunNetSnapshotPathProvider = tunNetSnapshotPath?.let { path -> { path } })
         DataStore.mixedInboundAuthed = DataStore.mixedInboundHasAuth
     }
 
@@ -86,17 +88,36 @@ abstract class BoxInstance(
         if (tunNetAuthorities.isNotEmpty()) {
             val selection = tunNetSelections.singleOrNull()
             withContext(Dispatchers.IO) {
-                Libcore.syncTunNet(
-                    "https://client-api.nexttun.net/api/v1/client",
-                    SagerNet.application.noBackupFilesDir.absolutePath,
-                    TUN_NET_CLIENT_VERSION,
-                    "",
-                    selection?.entryNode.orEmpty(),
-                    selection?.hostSlug.orEmpty(),
-                )
+                if (preparedTunNetBatch != null && tunNetSnapshotPath != null) {
+                    check(selection != null) {
+                        "Prepared TunNet tests require an explicit entry and host selection"
+                    }
+                    File(tunNetSnapshotPath).parentFile?.mkdirs()
+                    Libcore.materializeTunNetBatchSnapshot(
+                        preparedTunNetBatch,
+                        selection.entryNode,
+                        selection.hostSlug,
+                        tunNetSnapshotPath,
+                    )
+                } else {
+                    Libcore.syncTunNet(
+                        "https://client-api.nexttun.net/api/v1/client",
+                        SagerNet.application.noBackupFilesDir.absolutePath,
+                        TUN_NET_CLIENT_VERSION,
+                        "",
+                        selection?.entryNode.orEmpty(),
+                        selection?.hostSlug.orEmpty(),
+                    )
+                }
             }
-            check(Libcore.tunNetSnapshotExists(SagerNet.application.noBackupFilesDir.absolutePath)) {
-                "TunNet synchronization did not produce a snapshot"
+            if (tunNetSnapshotPath != null) {
+                check(File(tunNetSnapshotPath).isFile) {
+                    "TunNet synchronization did not produce the requested snapshot"
+                }
+            } else {
+                check(Libcore.tunNetSnapshotExists(SagerNet.application.noBackupFilesDir.absolutePath)) {
+                    "TunNet synchronization did not produce a snapshot"
+                }
             }
         }
         for ((chain) in config.externalIndex) {

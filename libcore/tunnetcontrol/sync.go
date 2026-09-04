@@ -31,6 +31,58 @@ type SyncOptions struct {
 	BuildSnapshot func(bootstrap, syncResponse json.RawMessage, echConfig ECHConfig, identity *Identity) (*Snapshot, error)
 }
 
+type acquiredCatalog struct {
+	bootstrap json.RawMessage
+	synced    json.RawMessage
+	ech       ECHConfig
+	identity  *Identity
+}
+
+func acquireCatalog(ctx context.Context, options SyncOptions) (*acquiredCatalog, error) {
+	if options.IdentityPath == "" || options.AppVersion == "" {
+		return nil, errors.New("incomplete TunNet catalog options")
+	}
+	identity, err := LoadOrCreateIdentity(options.IdentityPath)
+	if err != nil {
+		return nil, err
+	}
+	endpoint, err := url.Parse(options.Endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("parse TunNet endpoint: %w", err)
+	}
+	client := &Client{Endpoint: endpoint, HTTPClient: options.HTTPClient, Identity: identity, Opener: options.OpenResponse}
+	if client.Opener == nil {
+		client.Opener = HPKEResponseOpener{}
+	}
+	if options.Timeout <= 0 {
+		options.Timeout = 90 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, options.Timeout)
+	defer cancel()
+	machine := AccessMachine{Client: client, AppVersion: options.AppVersion, Platform: "android", HTTPClient: options.HTTPClient, PollInterval: options.PollInterval}
+	bootstrapResponse, err := machine.BootstrapAndAwaitReady(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	bootstrap, err := json.Marshal(bootstrapResponse)
+	if err != nil {
+		return nil, fmt.Errorf("marshal TunNet ready bootstrap: %w", err)
+	}
+	syncBody, err := marshalIdentityRequest(identity.ClientID, "android", options.AppVersion)
+	if err != nil {
+		return nil, err
+	}
+	var syncResponse json.RawMessage
+	if err = client.Call(ctx, "sync", json.RawMessage(syncBody), &syncResponse); err != nil {
+		return nil, fmt.Errorf("TunNet sync: %w", err)
+	}
+	echConfig, err := FetchECHConfigDNS(ctx, options.HTTPClient, echQueryName, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	return &acquiredCatalog{bootstrap: bootstrap, synced: syncResponse, ech: echConfig, identity: identity}, nil
+}
+
 // SyncToSnapshot completes the signed control/access flow and installs a validated
 // snapshot. It is safe to expose through gomobile: inputs and outputs contain no
 // private key material.
