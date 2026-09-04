@@ -66,6 +66,9 @@ func FetchECHConfigDNS(ctx context.Context, client *http.Client, queryName strin
 		if !ok {
 			continue
 		}
+		if !strings.EqualFold(mDNS.Fqdn(https.Hdr.Name), queryName) {
+			continue
+		}
 		for _, value := range https.Value {
 			if value.Key() != mDNS.SVCB_ECHCONFIG {
 				continue

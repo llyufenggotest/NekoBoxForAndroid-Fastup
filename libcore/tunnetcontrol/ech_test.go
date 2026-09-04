@@ -10,13 +10,13 @@ import (
 	mDNS "github.com/miekg/dns"
 )
 
-func echDNSResponse(t *testing.T, config []byte, ttl uint32) *http.Response {
+func echDNSResponse(t *testing.T, owner string, config []byte, ttl uint32) *http.Response {
 	t.Helper()
 	answer := new(mDNS.Msg)
 	answer.SetReply(new(mDNS.Msg))
 	answer.Rcode = mDNS.RcodeSuccess
 	answer.Answer = []mDNS.RR{&mDNS.HTTPS{SVCB: mDNS.SVCB{
-		Hdr:      mDNS.RR_Header{Name: echQueryName, Rrtype: mDNS.TypeHTTPS, Class: mDNS.ClassINET, Ttl: ttl},
+		Hdr:      mDNS.RR_Header{Name: owner, Rrtype: mDNS.TypeHTTPS, Class: mDNS.ClassINET, Ttl: ttl},
 		Priority: 1,
 		Target:   ".",
 		Value:    []mDNS.SVCBKeyValue{&mDNS.SVCBECHConfig{ECH: config}},
@@ -46,7 +46,7 @@ func TestFetchECHConfigDNSUsesHTTPSRecordAndTTL(t *testing.T) {
 		if request.URL.String() != echDoHURL || request.Method != http.MethodPost || request.Header.Get("Accept") != "application/dns-message" {
 			t.Fatalf("unexpected DoH request: %s %s", request.Method, request.URL)
 		}
-		return echDNSResponse(t, []byte{1, 2, 3}, 60), nil
+		return echDNSResponse(t, "sin-03.data.example.", []byte{1, 2, 3}, 60), nil
 	})}
 	config, err := FetchECHConfigDNS(t.Context(), client, "sin-03.data.example", now)
 	if err != nil {
@@ -59,7 +59,7 @@ func TestFetchECHConfigDNSUsesHTTPSRecordAndTTL(t *testing.T) {
 
 func TestFetchECHConfigDNSFailsClosedWithoutECH(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		return echDNSResponse(t, nil, 60), nil
+		return echDNSResponse(t, "sin-03.data.example.", nil, 60), nil
 	})}
 	if _, err := FetchECHConfigDNS(t.Context(), client, "sin-03.data.example", time.Now()); err == nil {
 		t.Fatal("accepted empty ECH config")

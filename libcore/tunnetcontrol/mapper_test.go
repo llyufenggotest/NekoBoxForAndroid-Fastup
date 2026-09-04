@@ -20,7 +20,7 @@ func TestResolveDataAuthorityUsesIndexedRuntimeRootDomain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if authority != "us.edge.example" {
+	if authority != "us-01.us.edge.example" {
 		t.Fatalf("unexpected indexed authority: %q", authority)
 	}
 }
@@ -50,6 +50,31 @@ func TestMapSnapshotFailsClosedOnUnknownSchema(t *testing.T) {
 	_, err := MapSnapshotWithOptions(context.Background(), json.RawMessage(`{}`), json.RawMessage(`{"schema_version":3,"access":{"state":"ready"},"runtime":{}}`), ECHConfig{}, identity, MapOptions{})
 	if err == nil || !strings.Contains(err.Error(), "schema/runtime") {
 		t.Fatalf("expected schema rejection, got %v", err)
+	}
+}
+
+func TestMapSnapshotUsesBootstrapRootDomainsWhenSyncOmitsNetwork(t *testing.T) {
+	identity := testIdentity(t)
+	bootstrap := json.RawMessage(`{"schema_version":2,"access":{"state":"ready"},"runtime":{"client_id":"` + identity.ClientID + `","network":{"root_domains":["jp.edge.example"]},"entry_nodes":[{"name":"entry-a","ipv4":["203.0.113.10"],"front_proxy":{"endpoint":"http://127.0.0.1:8080","headers":{"Host":"front.example","X-T5-Auth":"auth"}}}],"hosts":[{"slug":"jp-01","online":true,"vless_encryption_key":"key"}]}}`)
+	synced := json.RawMessage(`{"schema_version":2,"access":{"state":"ready"},"runtime":{"client_id":"` + identity.ClientID + `","entry_nodes":[{"name":"entry-a","ipv4":["203.0.113.10"],"front_proxy":{"endpoint":"http://127.0.0.1:8080","headers":{"Host":"front.example","X-T5-Auth":"auth"}}}],"hosts":[{"slug":"jp-01","online":true,"vless_encryption_key":"key"}]}}`)
+	now := time.Now()
+	snapshot, err := MapSnapshotWithOptions(context.Background(), bootstrap, synced, ECHConfig{QueryName: echQueryName, ConfigList: "AQID", ExpiresAt: now.Add(time.Hour).UnixMilli()}, identity, MapOptions{RouteProber: fixtureProber{"203.0.113.10": {latency: time.Millisecond}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.XHTTPAuthority != "jp-01.jp.edge.example" {
+		t.Fatalf("unexpected bootstrap authority: %q", snapshot.XHTTPAuthority)
+	}
+}
+
+func TestMapSnapshotRejectsBootstrapSyncHostReordering(t *testing.T) {
+	identity := testIdentity(t)
+	bootstrap := json.RawMessage(`{"schema_version":2,"access":{"state":"ready"},"runtime":{"client_id":"` + identity.ClientID + `","network":{"root_domains":["jp.edge.example","us.edge.example"]},"entry_nodes":[{"name":"entry-a","ipv4":["203.0.113.10"],"front_proxy":{"endpoint":"http://127.0.0.1:8080","headers":{"Host":"front.example","X-T5-Auth":"auth"}}}],"hosts":[{"slug":"jp-01","online":true,"vless_encryption_key":"key-a"},{"slug":"us-01","online":true,"vless_encryption_key":"key-b"}]}}`)
+	synced := json.RawMessage(`{"schema_version":2,"access":{"state":"ready"},"runtime":{"client_id":"` + identity.ClientID + `","entry_nodes":[{"name":"entry-a","ipv4":["203.0.113.10"],"front_proxy":{"endpoint":"http://127.0.0.1:8080","headers":{"Host":"front.example","X-T5-Auth":"auth"}}}],"hosts":[{"slug":"us-01","online":true,"vless_encryption_key":"key-b"},{"slug":"jp-01","online":true,"vless_encryption_key":"key-a"}]}}`)
+	now := time.Now()
+	_, err := MapSnapshotWithOptions(context.Background(), bootstrap, synced, ECHConfig{QueryName: echQueryName, ConfigList: "AQID", ExpiresAt: now.Add(time.Hour).UnixMilli()}, identity, MapOptions{RouteProber: fixtureProber{"203.0.113.10": {latency: time.Millisecond}}})
+	if err == nil || !strings.Contains(err.Error(), "catalog order mismatch") {
+		t.Fatalf("expected fail-closed host reorder error, got %v", err)
 	}
 }
 

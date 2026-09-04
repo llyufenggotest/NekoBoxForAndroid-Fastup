@@ -83,14 +83,14 @@ abstract class BoxInstance(
         check(tunNetSelections.size <= 1) {
             "A single sing-box instance cannot use multiple TunNet selections"
         }
-        tunNetAuthorities.singleOrNull()?.let { authority ->
+        if (tunNetAuthorities.isNotEmpty()) {
             val selection = tunNetSelections.singleOrNull()
             withContext(Dispatchers.IO) {
                 Libcore.syncTunNet(
                     "https://client-api.nexttun.net/api/v1/client",
                     SagerNet.application.noBackupFilesDir.absolutePath,
                     TUN_NET_CLIENT_VERSION,
-                    authority,
+                    "",
                     selection?.entryNode.orEmpty(),
                     selection?.hostSlug.orEmpty(),
                 )

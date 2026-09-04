@@ -83,7 +83,11 @@ func ResolveDataAuthority(syncResponse json.RawMessage, inputAuthority, requeste
 		if len(wire.Runtime.Network.RootDomains) != len(wire.Runtime.Hosts) {
 			return "", errors.New("TunNet runtime host/root-domain shape mismatch")
 		}
-		authority = strings.ToLower(strings.TrimSpace(wire.Runtime.Network.RootDomains[selected]))
+		baseDomain := strings.ToLower(strings.TrimSpace(wire.Runtime.Network.RootDomains[selected]))
+		if !validDNSAuthority(baseDomain) {
+			return "", errors.New("TunNet selected host has invalid root domain")
+		}
+		authority = strings.ToLower(wire.Runtime.Hosts[selected].Slug + "." + baseDomain)
 	}
 	if !validDNSAuthority(authority) {
 		return "", errors.New("TunNet selected host has invalid authority")
@@ -124,15 +128,32 @@ func MapSnapshotWithOptions(ctx context.Context, bootstrapRaw, syncResponse json
 	if err := json.Unmarshal(bootstrap.Runtime, &bootRuntime); err != nil {
 		return nil, fmt.Errorf("decode TunNet bootstrap runtime: %w", err)
 	}
-	// Sync is authoritative when it carries a catalog; bootstrap retains network
-	// fields that may be omitted by later sync publications.
+	// Sync owns the rotating entry/host catalog. Bootstrap owns network metadata
+	// that sync may omit after access completion. The protocol binds root domains
+	// to hosts positionally, so fail closed unless both catalogs are identical in
+	// length and slug order before borrowing bootstrap network metadata.
+	if len(wire.Runtime.Network.RootDomains) == 0 && options.DataAuthority == "" {
+		if len(bootRuntime.Hosts) != len(wire.Runtime.Hosts) {
+			return nil, errors.New("TunNet bootstrap/sync host catalog shape mismatch")
+		}
+		for index := range wire.Runtime.Hosts {
+			if !strings.EqualFold(strings.TrimSpace(bootRuntime.Hosts[index].Slug), strings.TrimSpace(wire.Runtime.Hosts[index].Slug)) {
+				return nil, errors.New("TunNet bootstrap/sync host catalog order mismatch")
+			}
+		}
+		wire.Runtime.Network = bootRuntime.Network
+	}
 	if len(wire.Runtime.EntryNodes) == 0 || len(wire.Runtime.Hosts) == 0 {
 		return nil, errors.New("TunNet sync runtime catalog is empty")
 	}
 	entries := wire.Runtime.EntryNodes
 	hosts := wire.Runtime.Hosts
 
-	authority, err := ResolveDataAuthority(syncResponse, options.DataAuthority, options.RequestedHostSlug)
+	mergedSync, err := json.Marshal(wire)
+	if err != nil {
+		return nil, fmt.Errorf("merge TunNet runtime metadata: %w", err)
+	}
+	authority, err := ResolveDataAuthority(mergedSync, options.DataAuthority, options.RequestedHostSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +164,7 @@ func MapSnapshotWithOptions(ctx context.Context, bootstrapRaw, syncResponse json
 				selectedHost = index
 				break
 			}
-		} else if index < len(wire.Runtime.Network.RootDomains) && strings.EqualFold(strings.TrimSpace(wire.Runtime.Network.RootDomains[index]), authority) {
+		} else if index < len(wire.Runtime.Network.RootDomains) && strings.EqualFold(hosts[index].Slug+"."+strings.TrimSpace(wire.Runtime.Network.RootDomains[index]), authority) {
 			selectedHost = index
 			break
 		}

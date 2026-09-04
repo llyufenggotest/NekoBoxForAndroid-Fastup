@@ -88,11 +88,27 @@ func SyncToSnapshot(ctx context.Context, options SyncOptions) error {
 	if err = client.Call(ctx, "sync", json.RawMessage(syncBody), &syncResponse); err != nil {
 		return fmt.Errorf("TunNet sync: %w", err)
 	}
-	authority, err := ResolveDataAuthority(syncResponse, options.DataAuthority, options.HostSlug)
+	authorityResponse := syncResponse
+	if options.DataAuthority == "" {
+		var synced syncWire
+		var ready syncWire
+		if json.Unmarshal(syncResponse, &synced) != nil || synced.Runtime == nil ||
+			json.Unmarshal(bootstrap, &ready) != nil || ready.Runtime == nil {
+			return errors.New("invalid TunNet runtime for authority merge")
+		}
+		if len(synced.Runtime.Network.RootDomains) == 0 {
+			synced.Runtime.Network = ready.Runtime.Network
+		}
+		authorityResponse, err = json.Marshal(synced)
+		if err != nil {
+			return fmt.Errorf("merge TunNet authority metadata: %w", err)
+		}
+	}
+	authority, err := ResolveDataAuthority(authorityResponse, options.DataAuthority, options.HostSlug)
 	if err != nil {
 		return fmt.Errorf("select TunNet data authority: %w", err)
 	}
-	echConfig, err := FetchECHConfigDNS(ctx, options.HTTPClient, authority, time.Now())
+	echConfig, err := FetchECHConfigDNS(ctx, options.HTTPClient, echQueryName, time.Now())
 	if err != nil {
 		return err
 	}
@@ -107,7 +123,7 @@ func SyncToSnapshot(ctx context.Context, options SyncOptions) error {
 				}
 			}
 			return MapSnapshotWithOptions(ctx, bootstrap, syncResponse, echConfig, identity, MapOptions{
-				DataAuthority: options.DataAuthority, PreviousEntryNode: previousEntry,
+				DataAuthority: authority, PreviousEntryNode: previousEntry,
 				RequestedEntryNode: options.EntryNode, RequestedHostSlug: options.HostSlug,
 			})
 		}

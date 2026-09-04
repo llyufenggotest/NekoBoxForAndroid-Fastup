@@ -29,7 +29,7 @@ func TestSyncToSnapshotRunsBootstrapAccessSyncAndAtomicWrite(t *testing.T) {
 			return jsonResponse(http.StatusOK, `{"state":"completed"}`), nil
 		}
 		if request.URL.Host == "cloudflare-dns.com" {
-			return echDNSResponse(t, []byte{1, 2, 3}, 3600), nil
+			return echDNSResponse(t, echQueryName, []byte{1, 2, 3}, 3600), nil
 		}
 		input := request.Header.Get("Signature-Input")
 		for _, operation := range []string{"bootstrap", "access", "sync"} {
