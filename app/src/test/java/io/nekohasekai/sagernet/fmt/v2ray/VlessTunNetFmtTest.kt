@@ -1,7 +1,7 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
+import java.util.Base64
 import io.nekohasekai.sagernet.fmt.KryoConverters
-import io.nekohasekai.sagernet.ktx.encodeBase64UrlSafe
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -125,7 +125,7 @@ class VlessTunNetFmtTest {
     @Test
     fun selectorMarkerRoundTripsEntryAndHost() {
         val entry = "电信接入点"
-        val encodedEntry = entry.encodeBase64UrlSafe()
+        val encodedEntry = Base64.getUrlEncoder().withoutPadding().encodeToString(entry.toByteArray())
         val id = "$FIXTURE_UUID#TunNet:$encodedEntry:jp-01"
         val bean = vless(id, "").apply {
             serverAddress = "seed.example"
