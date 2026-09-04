@@ -106,7 +106,7 @@ func TestAuthorizeAcceptsHTTPSPageFragmentAndStripsItFromAPIRequest(t *testing.T
 
 func TestAuthorizeFailsClosed(t *testing.T) {
 	machine := &AccessMachine{}
-	for _, rawURL := range []string{"http://auth.example/start", "https://user@auth.example/start", "not a url"} {
+	for _, rawURL := range []string{"http://auth.example/start", "https://user@auth.example/start", "https://auth.example:444/start", "not a url"} {
 		if err := machine.authorize(context.Background(), Access{State: "required", Ticket: "ticket", AuthorizationURL: rawURL}); err == nil {
 			t.Fatalf("accepted unsafe authorization URL: %q", rawURL)
 		}
