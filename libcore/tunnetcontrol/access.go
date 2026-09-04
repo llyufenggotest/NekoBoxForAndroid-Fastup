@@ -144,7 +144,7 @@ func (m *AccessMachine) authorize(ctx context.Context, access Access) error {
 		return errors.New("TunNet authorization requires ticket and URL")
 	}
 	page, err := url.Parse(access.AuthorizationURL)
-	if err != nil || page.Scheme != "https" || page.Hostname() == "" || page.User != nil || page.Fragment != "" || (page.Port() != "" && page.Port() != "443") {
+	if err != nil || page.Scheme != "https" || page.Hostname() == "" || page.User != nil || (page.Port() != "" && page.Port() != "443") {
 		return errors.New("invalid TunNet authorization URL")
 	}
 	target := *page

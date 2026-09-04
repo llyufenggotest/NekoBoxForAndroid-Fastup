@@ -83,6 +83,27 @@ func TestAccessMachineRejectsRequiredWithoutTicket(t *testing.T) {
 	}
 }
 
+func TestAuthorizeAcceptsHTTPSPageFragmentAndStripsItFromAPIRequest(t *testing.T) {
+	var received *http.Request
+	machine := &AccessMachine{HTTPClient: &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		received = request
+		return jsonResponse(http.StatusOK, `{"state":"completed"}`), nil
+	})}}
+	if err := machine.authorize(context.Background(), Access{
+		State:             "required",
+		Ticket:            "ticket",
+		AuthorizationURL: "https://auth.example/#browser-token",
+	}); err != nil {
+		t.Fatalf("rejected valid browser authorization URL: %v", err)
+	}
+	if received == nil {
+		t.Fatal("authorization request was not sent")
+	}
+	if got, want := received.URL.String(), "https://auth.example/api/v1/access/authorize"; got != want {
+		t.Fatalf("authorization target = %q, want %q", got, want)
+	}
+}
+
 func TestAuthorizeFailsClosed(t *testing.T) {
 	machine := &AccessMachine{}
 	for _, rawURL := range []string{"http://auth.example/start", "https://user@auth.example/start", "not a url"} {
