@@ -21,6 +21,11 @@ class TunNetActiveProfileTest {
         })
 
     @Test
+    fun usesOfficialTunNetControlVersionMetadata() {
+        assertEquals("0.2.6", TUN_NET_CLIENT_VERSION)
+    }
+
+    @Test
     fun tunNetSelectorTransitionsRequireRestart() {
         assertTrue(selectorSwitchRequiresRestart(currentTunNet = true, nextTunNet = false))
         assertTrue(selectorSwitchRequiresRestart(currentTunNet = false, nextTunNet = true))

@@ -1,7 +1,6 @@
 package io.nekohasekai.sagernet.bg.proto
 
 import android.os.SystemClock
-import io.nekohasekai.sagernet.BuildConfig
 import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.bg.AbstractInstance
 import io.nekohasekai.sagernet.bg.GuardedProcessPool
@@ -27,6 +26,8 @@ import libcore.BoxInstance
 import libcore.Libcore
 import moe.matsuri.nb4a.net.LocalResolverImpl
 import java.io.File
+
+internal const val TUN_NET_CLIENT_VERSION = "0.2.6"
 
 fun selectorSwitchRequiresRestart(currentTunNet: Boolean, nextTunNet: Boolean): Boolean =
     currentTunNet || nextTunNet
@@ -88,7 +89,7 @@ abstract class BoxInstance(
                 Libcore.syncTunNet(
                     "https://client-api.nexttun.net/api/v1/client",
                     SagerNet.application.noBackupFilesDir.absolutePath,
-                    BuildConfig.VERSION_NAME,
+                    TUN_NET_CLIENT_VERSION,
                     authority,
                     selection?.entryNode.orEmpty(),
                     selection?.hostSlug.orEmpty(),
