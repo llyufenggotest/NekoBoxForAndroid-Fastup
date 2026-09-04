@@ -66,7 +66,7 @@ abstract class BoxInstance(
             .filter { it.isTunNet() }
             .toList()
         val tunNetAuthorities = tunNetBeans.map { it.serverAddress.trim() }.filter { it.isNotEmpty() }.distinct()
-        val tunNetSelections = tunNetBeans.mapNotNull { it.tunNetSelection() }.distinct()
+        val tunNetSelections = tunNetBeans.map { it.tunNetSelection() }.distinct()
         check(tunNetAuthorities.size <= 1) {
             "A single sing-box instance cannot use multiple TunNet data authorities"
         }
