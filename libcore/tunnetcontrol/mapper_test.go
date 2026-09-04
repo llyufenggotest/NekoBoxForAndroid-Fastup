@@ -14,6 +14,17 @@ func mapperFixtures(id string) (json.RawMessage, json.RawMessage) {
 	return bootstrap, sync
 }
 
+func TestResolveDataAuthorityUsesIndexedRuntimeRootDomain(t *testing.T) {
+	synced := json.RawMessage(`{"schema_version":2,"runtime":{"network":{"root_domains":["jp.edge.example","us.edge.example"]},"hosts":[{"slug":"jp-01","online":true,"load_percent":10,"vless_encryption_key":"key-a"},{"slug":"us-01","online":true,"load_percent":90,"vless_encryption_key":"key-b"}]}}`)
+	authority, err := ResolveDataAuthority(synced, "", "us-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if authority != "us.edge.example" {
+		t.Fatalf("unexpected indexed authority: %q", authority)
+	}
+}
+
 func TestMapSnapshotBuildsValidatedPublication(t *testing.T) {
 	identity := testIdentity(t)
 	bootstrap, synced := mapperFixtures(identity.ClientID)

@@ -21,10 +21,14 @@ type syncWire struct {
 type runtimeWire struct {
 	ClientID        string          `json:"client_id"`
 	Traffic         json.RawMessage `json:"traffic"`
-	Network         json.RawMessage `json:"network"`
+	Network         networkWire     `json:"network"`
 	ActiveEntryNode string          `json:"active_entry_node"`
 	EntryNodes      []SnapshotEntry `json:"entry_nodes"`
 	Hosts           []SnapshotHost  `json:"hosts"`
+}
+
+type networkWire struct {
+	RootDomains []string `json:"root_domains"`
 }
 
 type MapOptions struct {
@@ -41,11 +45,6 @@ func ResolveDataAuthority(syncResponse json.RawMessage, inputAuthority, requeste
 		return "", errors.New("invalid TunNet sync runtime for authority selection")
 	}
 	inputAuthority = strings.ToLower(strings.TrimSpace(inputAuthority))
-	if !validDNSAuthority(inputAuthority) {
-		return "", errors.New("invalid TunNet data authority")
-	}
-	labels := strings.Split(inputAuthority, ".")
-	baseDomain := strings.Join(labels[1:], ".")
 	selected := -1
 	requestedHostSlug = strings.TrimSpace(requestedHostSlug)
 	if requestedHostSlug != "" && !validDNSLabel(requestedHostSlug) {
@@ -73,9 +72,21 @@ func ResolveDataAuthority(syncResponse json.RawMessage, inputAuthority, requeste
 		}
 		return "", errors.New("TunNet runtime has no usable online host")
 	}
-	authority := strings.ToLower(wire.Runtime.Hosts[selected].Slug + "." + baseDomain)
+	var authority string
+	if inputAuthority != "" {
+		if !validDNSAuthority(inputAuthority) {
+			return "", errors.New("invalid TunNet data authority")
+		}
+		labels := strings.Split(inputAuthority, ".")
+		authority = strings.ToLower(wire.Runtime.Hosts[selected].Slug + "." + strings.Join(labels[1:], "."))
+	} else {
+		if len(wire.Runtime.Network.RootDomains) != len(wire.Runtime.Hosts) {
+			return "", errors.New("TunNet runtime host/root-domain shape mismatch")
+		}
+		authority = strings.ToLower(strings.TrimSpace(wire.Runtime.Network.RootDomains[selected]))
+	}
 	if !validDNSAuthority(authority) {
-		return "", errors.New("TunNet selected host produced invalid authority")
+		return "", errors.New("TunNet selected host has invalid authority")
 	}
 	return authority, nil
 }
@@ -127,7 +138,12 @@ func MapSnapshotWithOptions(ctx context.Context, bootstrapRaw, syncResponse json
 	}
 	selectedHost := -1
 	for index := range hosts {
-		if strings.EqualFold(hosts[index].Slug, strings.SplitN(authority, ".", 2)[0]) {
+		if inputAuthority := strings.ToLower(strings.TrimSpace(options.DataAuthority)); inputAuthority != "" {
+			if strings.EqualFold(hosts[index].Slug, strings.SplitN(authority, ".", 2)[0]) {
+				selectedHost = index
+				break
+			}
+		} else if index < len(wire.Runtime.Network.RootDomains) && strings.EqualFold(strings.TrimSpace(wire.Runtime.Network.RootDomains[index]), authority) {
 			selectedHost = index
 			break
 		}
