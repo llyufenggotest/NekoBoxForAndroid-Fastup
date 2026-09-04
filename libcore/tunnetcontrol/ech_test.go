@@ -43,7 +43,7 @@ func (r *byteReader) Read(p []byte) (int, error) {
 func TestFetchECHConfigDNSUsesHTTPSRecordAndTTL(t *testing.T) {
 	now := time.UnixMilli(1_780_000_000_000)
 	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		if request.URL.String() != echDoHURL || request.Method != http.MethodPost || request.Header.Get("Accept") != "application/dns-message" {
+		if request.URL.String() != echDoHURLs[0] || request.Method != http.MethodPost || request.Header.Get("Accept") != "application/dns-message" {
 			t.Fatalf("unexpected DoH request: %s %s", request.Method, request.URL)
 		}
 		return echDNSResponse(t, "sin-03.data.example.", []byte{1, 2, 3}, 60), nil
@@ -63,6 +63,29 @@ func TestFetchECHConfigDNSFailsClosedWithoutECH(t *testing.T) {
 	})}
 	if _, err := FetchECHConfigDNS(t.Context(), client, "sin-03.data.example", time.Now()); err == nil {
 		t.Fatal("accepted empty ECH config")
+	}
+}
+
+func TestFetchECHConfigDNSFallsBackAfterPrimaryTransportFailure(t *testing.T) {
+	attempts := 0
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		attempts++
+		if attempts == 1 {
+			if request.URL.String() != echDoHURLs[0] {
+				t.Fatalf("unexpected primary resolver: %s", request.URL)
+			}
+			return nil, io.ErrUnexpectedEOF
+		}
+		if request.URL.String() != echDoHURLs[1] {
+			t.Fatalf("unexpected fallback resolver: %s", request.URL)
+		}
+		return echDNSResponse(t, echQueryName, []byte{1, 2, 3}, 60), nil
+	})}
+	if _, err := FetchECHConfigDNS(t.Context(), client, echQueryName, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 2 {
+		t.Fatalf("expected two resolver attempts, got %d", attempts)
 	}
 }
 

@@ -14,12 +14,26 @@ import (
 	mDNS "github.com/miekg/dns"
 )
 
-const (
-	echQueryName = "cloudflare-ech.com."
-	echDoHURL    = "https://cloudflare-dns.com/dns-query"
-)
+const echQueryName = "cloudflare-ech.com."
+
+var echDoHURLs = []string{
+	"https://cloudflare-dns.com/dns-query",
+	"https://dns.google/dns-query",
+}
 
 func FetchECHConfigDNS(ctx context.Context, client *http.Client, queryName string, now time.Time) (ECHConfig, error) {
+	var lastErr error
+	for _, endpoint := range echDoHURLs {
+		config, err := fetchECHConfigDNSFrom(ctx, client, endpoint, queryName, now)
+		if err == nil {
+			return config, nil
+		}
+		lastErr = err
+	}
+	return ECHConfig{}, fmt.Errorf("TunNet ECH query failed on all resolvers: %w", lastErr)
+}
+
+func fetchECHConfigDNSFrom(ctx context.Context, client *http.Client, endpoint, queryName string, now time.Time) (ECHConfig, error) {
 	queryName = mDNS.Fqdn(queryName)
 	if !validDNSAuthority(strings.TrimSuffix(strings.ToLower(queryName), ".")) {
 		return ECHConfig{}, errors.New("invalid TunNet ECH query name")
@@ -30,7 +44,7 @@ func FetchECHConfigDNS(ctx context.Context, client *http.Client, queryName strin
 	if err != nil {
 		return ECHConfig{}, fmt.Errorf("encode TunNet ECH query: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, echDoHURL, bytes.NewReader(wire))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(wire))
 	if err != nil {
 		return ECHConfig{}, fmt.Errorf("create TunNet ECH query: %w", err)
 	}
