@@ -37,11 +37,6 @@ type AccessResponse struct {
 	Release   json.RawMessage   `json:"release"`
 }
 
-type RefreshAccessRequest struct {
-	Ticket     string `json:"ticket"`
-	CurrentURL string `json:"current_url"`
-}
-
 type PollAccessRequest struct {
 	Ticket     string `json:"ticket"`
 	AppVersion string `json:"app_version"`
@@ -142,18 +137,6 @@ func (c *Client) now() time.Time {
 		return c.Now()
 	}
 	return time.Now()
-}
-
-func (m *AccessMachine) Refresh(ctx context.Context, access Access) (Access, error) {
-	if access.State != "required" || access.Ticket == "" {
-		return Access{}, errors.New("TunNet access refresh requires pending authorization")
-	}
-	var response AccessResponse
-	err := m.Client.Call(ctx, "access_refresh", RefreshAccessRequest{Ticket: access.Ticket, CurrentURL: access.AuthorizationURL}, &response)
-	if err != nil {
-		return Access{}, fmt.Errorf("refresh TunNet access: %w", err)
-	}
-	return response.Access, nil
 }
 
 func (m *AccessMachine) authorize(ctx context.Context, access Access) error {

@@ -21,7 +21,6 @@ type SyncOptions struct {
 	IdentityPath  string
 	SnapshotPath  string
 	AppVersion    string
-	CurrentURL    string
 	Timeout       time.Duration
 	PollInterval  time.Duration
 	HTTPClient    *http.Client

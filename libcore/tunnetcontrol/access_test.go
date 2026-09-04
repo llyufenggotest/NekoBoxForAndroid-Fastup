@@ -83,28 +83,6 @@ func TestAccessMachineRejectsRequiredWithoutTicket(t *testing.T) {
 	}
 }
 
-func TestAccessMachineRefreshUsesExactOperation(t *testing.T) {
-	client := &Client{
-		Endpoint: mustURL(t, "https://control.example/api/v1/client"), Identity: testIdentity(t),
-		Opener: openerFunc(func(_ *ecdh.PrivateKey, sealed []byte, _ string, _ string, _ []byte) ([]byte, error) {
-			return sealed, nil
-		}),
-		HTTPClient: &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			if !strings.Contains(request.Header.Get("Signature-Input"), `tag="access_refresh:tunnet-client-v1"`) {
-				t.Fatal("wrong refresh operation")
-			}
-			return sealedResponse(`{"access":{"state":"required","ticket":"ticket-2","authorization_url":"https://auth.example/new"}}`), nil
-		})},
-	}
-	access, err := (&AccessMachine{Client: client}).Refresh(context.Background(), Access{State: "required", Ticket: "ticket-1", AuthorizationURL: "https://auth.example/old"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if access.Ticket != "ticket-2" {
-		t.Fatalf("unexpected refreshed access: %#v", access)
-	}
-}
-
 func TestAuthorizeFailsClosed(t *testing.T) {
 	machine := &AccessMachine{}
 	for _, rawURL := range []string{"http://auth.example/start", "https://user@auth.example/start", "not a url"} {

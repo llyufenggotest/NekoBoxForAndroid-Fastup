@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -115,6 +116,35 @@ func TestClientCallParsesRateLimit(t *testing.T) {
 	controlError, ok := err.(*ControlError)
 	if !ok || controlError.RetryAfter != 15*time.Second {
 		t.Fatalf("unexpected rate-limit error: %#v", err)
+	}
+}
+
+func TestClientCallRejectsRedirectWithoutForwardingSignedRequest(t *testing.T) {
+	forwarded := false
+	target := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		forwarded = true
+	}))
+	defer target.Close()
+	redirector := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
+	}))
+	defer redirector.Close()
+
+	endpoint, err := url.Parse(redirector.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := &Client{
+		Endpoint:   endpoint,
+		Identity:   testIdentity(t),
+		Opener:     openerFunc(func(*ecdh.PrivateKey, []byte, string, string, []byte) ([]byte, error) { return nil, nil }),
+		HTTPClient: redirector.Client(),
+	}
+	if err = client.Call(context.Background(), "sync", struct{}{}, nil); err == nil {
+		t.Fatal("accepted redirected TunNet control request")
+	}
+	if forwarded {
+		t.Fatal("forwarded signed TunNet request to redirect target")
 	}
 }
 

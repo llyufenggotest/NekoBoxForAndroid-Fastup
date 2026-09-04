@@ -92,7 +92,11 @@ func (c *Client) Call(ctx context.Context, operation string, payload any, result
 	if client == nil {
 		client = http.DefaultClient
 	}
-	response, err := client.Do(req)
+	controlClient := *client
+	controlClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	response, err := controlClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("perform TunNet control request: %w", err)
 	}
