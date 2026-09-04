@@ -18,6 +18,7 @@ import (
 const echQueryName = "cloudflare-ech.com."
 
 var echDoHURLs = []string{
+	"https://223.5.5.5/dns-query",
 	"https://cloudflare-dns.com/dns-query",
 	"https://dns.google/dns-query",
 }
@@ -25,7 +26,9 @@ var echDoHURLs = []string{
 func FetchECHConfigDNS(ctx context.Context, client *http.Client, queryName string, now time.Time) (ECHConfig, error) {
 	var lastErr error
 	for _, endpoint := range echDoHURLs {
-		config, err := fetchECHConfigDNSFrom(ctx, client, endpoint, queryName, now)
+		attemptCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		config, err := fetchECHConfigDNSFrom(attemptCtx, client, endpoint, queryName, now)
+		cancel()
 		if err == nil {
 			return config, nil
 		}
