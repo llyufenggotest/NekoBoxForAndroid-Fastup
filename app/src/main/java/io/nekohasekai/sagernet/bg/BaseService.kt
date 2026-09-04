@@ -14,6 +14,8 @@ import io.nekohasekai.sagernet.SagerNet
 import io.nekohasekai.sagernet.aidl.ISagerNetService
 import io.nekohasekai.sagernet.aidl.ISagerNetServiceCallback
 import io.nekohasekai.sagernet.bg.proto.ProxyInstance
+import io.nekohasekai.sagernet.bg.proto.activeTunNetBeans
+import io.nekohasekai.sagernet.bg.proto.selectorSwitchRequiresRestart
 import io.nekohasekai.sagernet.database.DataStore
 import io.nekohasekai.sagernet.database.SagerDatabase
 import io.nekohasekai.sagernet.ktx.*
@@ -210,9 +212,21 @@ class BaseService {
         fun canReloadSelector(): Boolean {
             if ((data.proxy?.config?.selectorGroupId ?: -1L) < 0) return false
             val ent = SagerDatabase.proxyDao.getById(DataStore.selectedProxy) ?: return false
+            val activeInstance = data.proxy ?: return false
+            val currentTunNet = activeTunNetBeans(
+                DataStore.currentProfile,
+                activeInstance.config.profileTagMap,
+                activeInstance.config.trafficMap,
+            ).isNotEmpty()
             val tmpBox = ProxyInstance(ent)
             tmpBox.buildConfigTmp()
-            if (tmpBox.lastSelectorGroupId == data.proxy?.lastSelectorGroupId) {
+            val nextTunNet = activeTunNetBeans(
+                ent.id,
+                tmpBox.config.profileTagMap,
+                tmpBox.config.trafficMap,
+            ).isNotEmpty()
+            if (selectorSwitchRequiresRestart(currentTunNet, nextTunNet)) return false
+            if (tmpBox.lastSelectorGroupId == activeInstance.lastSelectorGroupId) {
                 return true
             }
             return false

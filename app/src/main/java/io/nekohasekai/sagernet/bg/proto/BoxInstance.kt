@@ -28,6 +28,20 @@ import libcore.Libcore
 import moe.matsuri.nb4a.net.LocalResolverImpl
 import java.io.File
 
+fun selectorSwitchRequiresRestart(currentTunNet: Boolean, nextTunNet: Boolean): Boolean =
+    currentTunNet || nextTunNet
+
+fun activeTunNetBeans(
+    profileId: Long,
+    profileTagMap: Map<Long, String>,
+    trafficMap: Map<String, List<ProxyEntity>>,
+): List<VMessBean> {
+    val activeTag = profileTagMap[profileId] ?: return emptyList()
+    return trafficMap[activeTag].orEmpty()
+        .mapNotNull { it.requireBean() as? VMessBean }
+        .filter { it.isTunNet() }
+}
+
 abstract class BoxInstance(
     val profile: ProxyEntity
 ) : AbstractInstance {
@@ -59,12 +73,7 @@ abstract class BoxInstance(
 
     open suspend fun init() {
         buildConfig()
-        val tunNetBeans = config.trafficMap.values
-            .asSequence()
-            .flatten()
-            .mapNotNull { it.requireBean() as? VMessBean }
-            .filter { it.isTunNet() }
-            .toList()
+        val tunNetBeans = activeTunNetBeans(profile.id, config.profileTagMap, config.trafficMap)
         val tunNetAuthorities = tunNetBeans.map { it.serverAddress.trim() }.filter { it.isNotEmpty() }.distinct()
         val tunNetSelections = tunNetBeans.map { it.tunNetSelection() }.distinct()
         check(tunNetAuthorities.size <= 1) {
