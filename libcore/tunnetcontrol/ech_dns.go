@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -51,7 +52,12 @@ func fetchECHConfigDNSFrom(ctx context.Context, client *http.Client, endpoint, q
 	req.Header.Set("Content-Type", "application/dns-message")
 	req.Header.Set("Accept", "application/dns-message")
 	if client == nil {
-		client = http.DefaultClient
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		baseDialer := &net.Dialer{}
+		transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+			return baseDialer.DialContext(ctx, "tcp4", address)
+		}
+		client = &http.Client{Transport: transport}
 	}
 	resp, err := client.Do(req)
 	if err != nil {
