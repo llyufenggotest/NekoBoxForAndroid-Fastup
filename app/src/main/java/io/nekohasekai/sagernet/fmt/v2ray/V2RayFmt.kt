@@ -8,6 +8,7 @@ import io.nekohasekai.sagernet.fmt.http.HttpBean
 import io.nekohasekai.sagernet.fmt.trojan.TrojanBean
 import io.nekohasekai.sagernet.fmt.trojan.fastupMpwQueryParameter
 import io.nekohasekai.sagernet.ktx.*
+import java.util.Base64
 import moe.matsuri.nb4a.SingBoxOptions.*
 import moe.matsuri.nb4a.utils.NGUtil
 import moe.matsuri.nb4a.utils.listByLineOrComma
@@ -34,7 +35,9 @@ fun VMessBean.tunNetSelection(): TunNetSelection? {
     if (marker < 0) return null
     val fields = uuid.substring(marker + TUN_NET_SELECTOR.length).split(':')
     if (fields.size != 2 || fields.any { it.isBlank() }) return null
-    val entry = runCatching { fields[0].decodeBase64UrlSafe() }.getOrNull()
+    val entry = runCatching {
+        String(Base64.getUrlDecoder().decode(fields[0]), Charsets.UTF_8)
+    }.getOrNull()
         ?.takeIf { it.isNotBlank() } ?: return null
     val hostSlug = fields[1].takeIf { it.matches(Regex("^[a-z0-9][a-z0-9-]{0,62}$")) } ?: return null
     return TunNetSelection(entry, hostSlug)
