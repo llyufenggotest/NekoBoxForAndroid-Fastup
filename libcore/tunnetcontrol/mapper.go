@@ -28,12 +28,14 @@ type runtimeWire struct {
 }
 
 type MapOptions struct {
-	DataAuthority     string
-	PreviousEntryNode string
-	RouteProber       RouteProber
+	DataAuthority      string
+	PreviousEntryNode  string
+	RequestedEntryNode string
+	RequestedHostSlug  string
+	RouteProber        RouteProber
 }
 
-func ResolveDataAuthority(syncResponse json.RawMessage, inputAuthority string) (string, error) {
+func ResolveDataAuthority(syncResponse json.RawMessage, inputAuthority, requestedHostSlug string) (string, error) {
 	var wire syncWire
 	if err := json.Unmarshal(syncResponse, &wire); err != nil || wire.Runtime == nil {
 		return "", errors.New("invalid TunNet sync runtime for authority selection")
@@ -45,9 +47,20 @@ func ResolveDataAuthority(syncResponse json.RawMessage, inputAuthority string) (
 	labels := strings.Split(inputAuthority, ".")
 	baseDomain := strings.Join(labels[1:], ".")
 	selected := -1
+	requestedHostSlug = strings.TrimSpace(requestedHostSlug)
+	if requestedHostSlug != "" && !validDNSLabel(requestedHostSlug) {
+		return "", errors.New("invalid requested TunNet host slug")
+	}
 	for index := range wire.Runtime.Hosts {
 		host := wire.Runtime.Hosts[index]
 		if !host.Online || strings.TrimSpace(host.Slug) == "" || strings.TrimSpace(host.VLESSEncryptionKey) == "" {
+			continue
+		}
+		if requestedHostSlug != "" {
+			if strings.EqualFold(host.Slug, requestedHostSlug) {
+				selected = index
+				break
+			}
 			continue
 		}
 		if selected < 0 || host.LoadPercent < wire.Runtime.Hosts[selected].LoadPercent || host.LoadPercent == wire.Runtime.Hosts[selected].LoadPercent && host.Slug < wire.Runtime.Hosts[selected].Slug {
@@ -55,6 +68,9 @@ func ResolveDataAuthority(syncResponse json.RawMessage, inputAuthority string) (
 		}
 	}
 	if selected < 0 {
+		if requestedHostSlug != "" {
+			return "", errors.New("requested TunNet host is absent, offline, or unusable")
+		}
 		return "", errors.New("TunNet runtime has no usable online host")
 	}
 	authority := strings.ToLower(wire.Runtime.Hosts[selected].Slug + "." + baseDomain)
@@ -105,7 +121,7 @@ func MapSnapshotWithOptions(ctx context.Context, bootstrapRaw, syncResponse json
 	entries := wire.Runtime.EntryNodes
 	hosts := wire.Runtime.Hosts
 
-	authority, err := ResolveDataAuthority(syncResponse, options.DataAuthority)
+	authority, err := ResolveDataAuthority(syncResponse, options.DataAuthority, options.RequestedHostSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +137,10 @@ func MapSnapshotWithOptions(ctx context.Context, bootstrapRaw, syncResponse json
 	}
 	hosts[selectedHost].Authority = authority
 
-	entryName := strings.TrimSpace(options.PreviousEntryNode)
+	entryName := strings.TrimSpace(options.RequestedEntryNode)
+	if entryName == "" {
+		entryName = strings.TrimSpace(options.PreviousEntryNode)
+	}
 	entryIndex := -1
 	if entryName == "" && strings.TrimSpace(bootRuntime.ActiveEntryNode) != "" {
 		entryName = bootRuntime.ActiveEntryNode
@@ -172,6 +191,18 @@ func MapSnapshotWithOptions(ctx context.Context, bootstrapRaw, syncResponse json
 		XHTTPAuthority:  authority,
 		XHTTPPath:       path,
 	}, nil
+}
+
+func validDNSLabel(value string) bool {
+	if value == "" || len(value) > 63 || value[0] == '-' || value[len(value)-1] == '-' {
+		return false
+	}
+	for _, r := range value {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 func validDNSAuthority(value string) bool {

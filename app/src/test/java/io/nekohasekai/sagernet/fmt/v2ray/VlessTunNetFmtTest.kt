@@ -1,6 +1,7 @@
 package io.nekohasekai.sagernet.fmt.v2ray
 
 import io.nekohasekai.sagernet.fmt.KryoConverters
+import io.nekohasekai.sagernet.ktx.encodeBase64UrlSafe
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -119,6 +120,38 @@ class VlessTunNetFmtTest {
         assertEquals(FIXTURE_UUID, restored.uuid)
         assertFalse(restored.isTunNet())
         assertEquals(FIXTURE_UUID, restored.tunNetRuntimeUuid())
+    }
+
+    @Test
+    fun selectorMarkerRoundTripsEntryAndHost() {
+        val entry = "电信接入点"
+        val encodedEntry = entry.encodeBase64UrlSafe()
+        val id = "$FIXTURE_UUID#TunNet:$encodedEntry:jp-01"
+        val bean = vless(id, "").apply {
+            serverAddress = "seed.example"
+            serverPort = 443
+            type = "tcp"
+            security = "none"
+        }
+        val selection = bean.tunNetSelection()
+        assertNotNull(selection)
+        assertEquals(entry, selection!!.entryNode)
+        assertEquals("jp-01", selection.hostSlug)
+        assertEquals(FIXTURE_UUID, bean.tunNetRuntimeUuid())
+        val link = bean.toUriVMessVLESSTrojan(false)
+        val restored = VMessBean().apply {
+            alterId = -1
+            parseDuckSoft(link.replace("vless://", "https://").toHttpUrl())
+        }
+        assertEquals(id, restored.uuid)
+        assertEquals(selection, restored.tunNetSelection())
+    }
+
+    @Test
+    fun malformedSelectorDoesNotTriggerTunNet() {
+        val bean = vless("$FIXTURE_UUID#TunNet:%:jp-01")
+        assertFalse(bean.isTunNet())
+        assertNull(bean.tunNetSelection())
     }
 
     @Test

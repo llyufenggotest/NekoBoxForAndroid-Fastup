@@ -86,8 +86,8 @@ func InitCore(process, cachePath, internalAssets, externalAssets string,
 	}()
 }
 
-func SyncTunNet(endpoint, noBackupDirectory, appVersion, currentURL string) error {
-	return tunnetcontrol.Sync(endpoint, noBackupDirectory, appVersion, currentURL)
+func SyncTunNet(endpoint, noBackupDirectory, appVersion, currentURL, entryNode, hostSlug string) error {
+	return tunnetcontrol.Sync(endpoint, noBackupDirectory, appVersion, currentURL, entryNode, hostSlug)
 }
 
 func TunNetSnapshotExists(noBackupDirectory string) bool {

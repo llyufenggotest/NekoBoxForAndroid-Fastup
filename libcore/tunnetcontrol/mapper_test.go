@@ -42,6 +42,35 @@ func TestMapSnapshotFailsClosedOnUnknownSchema(t *testing.T) {
 	}
 }
 
+func TestMapSnapshotHonorsRequestedEntryAndHost(t *testing.T) {
+	identity := testIdentity(t)
+	bootstrap := json.RawMessage(`{"schema_version":2,"access":{"state":"ready"},"runtime":{"client_id":"` + identity.ClientID + `","active_entry_node":"entry-a"}}`)
+	synced := json.RawMessage(`{"schema_version":2,"access":{"state":"ready"},"runtime":{"client_id":"` + identity.ClientID + `","entry_nodes":[{"name":"entry-a","ipv4":["203.0.113.10"],"front_proxy":{"endpoint":"http://127.0.0.1:8080","headers":{"Host":"front.example","X-T5-Auth":"auth"}}},{"name":"entry-b","ipv4":["203.0.113.11"],"front_proxy":{"endpoint":"http://127.0.0.1:8081","headers":{"Host":"front.example","X-T5-Auth":"auth"}}}],"hosts":[{"slug":"jp-01","online":true,"load_percent":10,"vless_encryption_key":"key-a"},{"slug":"us-01","online":true,"load_percent":90,"vless_encryption_key":"key-b"}]}}`)
+	now := time.Now()
+	snapshot, err := MapSnapshotWithOptions(context.Background(), bootstrap, synced, ECHConfig{QueryName: echQueryName, ConfigList: "AQID", ExpiresAt: now.Add(time.Hour).UnixMilli()}, identity, MapOptions{
+		DataAuthority: "jp-01.data.example", RequestedEntryNode: "entry-b", RequestedHostSlug: "us-01",
+		RouteProber: fixtureProber{"203.0.113.11": {latency: time.Millisecond}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.ActiveEntryNode != "entry-b" || snapshot.SelectedHost != "us-01" || snapshot.XHTTPAuthority != "us-01.data.example" {
+		t.Fatalf("requested selection was not honored: %#v", snapshot)
+	}
+}
+
+func TestMapSnapshotRejectsUnavailableRequestedHost(t *testing.T) {
+	identity := testIdentity(t)
+	bootstrap, synced := mapperFixtures(identity.ClientID)
+	_, err := MapSnapshotWithOptions(context.Background(), bootstrap, synced, ECHConfig{QueryName: echQueryName, ConfigList: "AQID", ExpiresAt: time.Now().Add(time.Hour).UnixMilli()}, identity, MapOptions{
+		DataAuthority: "sin-03.data.example", RequestedEntryNode: "entry-a", RequestedHostSlug: "missing",
+		RouteProber: fixtureProber{"203.0.113.10": {latency: time.Millisecond}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "requested TunNet host") {
+		t.Fatalf("expected requested-host rejection, got %v", err)
+	}
+}
+
 func TestMapSnapshotFailsClosedOnInvalidSelectionOrRoute(t *testing.T) {
 	identity := testIdentity(t)
 	bootstrap, synced := mapperFixtures(identity.ClientID)

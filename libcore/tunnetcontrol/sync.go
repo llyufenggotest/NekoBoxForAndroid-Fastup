@@ -26,6 +26,8 @@ type SyncOptions struct {
 	HTTPClient    *http.Client
 	OpenResponse  ResponseOpener
 	DataAuthority string
+	EntryNode     string
+	HostSlug      string
 	BuildSnapshot func(bootstrap, syncResponse json.RawMessage, echConfig ECHConfig, identity *Identity) (*Snapshot, error)
 }
 
@@ -86,7 +88,7 @@ func SyncToSnapshot(ctx context.Context, options SyncOptions) error {
 	if err = client.Call(ctx, "sync", json.RawMessage(syncBody), &syncResponse); err != nil {
 		return fmt.Errorf("TunNet sync: %w", err)
 	}
-	authority, err := ResolveDataAuthority(syncResponse, options.DataAuthority)
+	authority, err := ResolveDataAuthority(syncResponse, options.DataAuthority, options.HostSlug)
 	if err != nil {
 		return fmt.Errorf("select TunNet data authority: %w", err)
 	}
@@ -104,7 +106,10 @@ func SyncToSnapshot(ctx context.Context, options SyncOptions) error {
 					previousEntry = existing.ActiveEntryNode
 				}
 			}
-			return MapSnapshotWithOptions(ctx, bootstrap, syncResponse, echConfig, identity, MapOptions{DataAuthority: options.DataAuthority, PreviousEntryNode: previousEntry})
+			return MapSnapshotWithOptions(ctx, bootstrap, syncResponse, echConfig, identity, MapOptions{
+				DataAuthority: options.DataAuthority, PreviousEntryNode: previousEntry,
+				RequestedEntryNode: options.EntryNode, RequestedHostSlug: options.HostSlug,
+			})
 		}
 	}
 	snapshot, err := mapper(bootstrap, syncResponse, echConfig, identity)
@@ -142,7 +147,7 @@ func marshalIdentityRequest(clientID, platform, appVersion string) ([]byte, erro
 // Sync is the gomobile-facing entry point used before constructing a #TunNet
 // sing-box outbound. The protocol mapper remains fail-closed until its exact
 // runtime response schema is installed.
-func Sync(endpoint, noBackupDirectory, appVersion, dataAuthority string) error {
+func Sync(endpoint, noBackupDirectory, appVersion, dataAuthority, entryNode, hostSlug string) error {
 	root := filepath.Join(noBackupDirectory, "tunnet")
 	return SyncToSnapshot(context.Background(), SyncOptions{
 		Endpoint:      endpoint,
@@ -150,6 +155,8 @@ func Sync(endpoint, noBackupDirectory, appVersion, dataAuthority string) error {
 		SnapshotPath:  filepath.Join(root, "snapshot.json"),
 		AppVersion:    appVersion,
 		DataAuthority: dataAuthority,
+		EntryNode:     entryNode,
+		HostSlug:      hostSlug,
 		HTTPClient:    nil,
 		OpenResponse:  HPKEResponseOpener{},
 	})

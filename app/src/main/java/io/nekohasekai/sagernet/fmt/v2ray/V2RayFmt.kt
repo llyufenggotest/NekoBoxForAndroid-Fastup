@@ -20,16 +20,34 @@ private val supportedKcpHeaderType = arrayOf(
 )
 
 private const val TUN_NET_SUFFIX = "#tunnet"
+private const val TUN_NET_SELECTOR = "#tunnet:"
 private const val TUN_NET_SNAPSHOT_FILE = "tunnet/snapshot.json"
 
 private fun tunNetSnapshotPath(): String =
     SagerNet.application.noBackupFilesDir.resolve(TUN_NET_SNAPSHOT_FILE).absolutePath
 
-fun VMessBean.isTunNet(): Boolean =
-    isVLESS && uuid.endsWith(TUN_NET_SUFFIX, ignoreCase = true)
+data class TunNetSelection(val entryNode: String, val hostSlug: String)
 
-fun VMessBean.tunNetRuntimeUuid(): String =
-    if (isTunNet()) uuid.dropLast(TUN_NET_SUFFIX.length) else uuid
+fun VMessBean.tunNetSelection(): TunNetSelection? {
+    if (!isVLESS) return null
+    val marker = uuid.indexOf(TUN_NET_SELECTOR, ignoreCase = true)
+    if (marker < 0) return null
+    val fields = uuid.substring(marker + TUN_NET_SELECTOR.length).split(':')
+    if (fields.size != 2 || fields.any { it.isBlank() }) return null
+    val entry = runCatching { fields[0].decodeBase64UrlSafe() }.getOrNull()
+        ?.takeIf { it.isNotBlank() } ?: return null
+    val hostSlug = fields[1].takeIf { it.matches(Regex("^[a-z0-9][a-z0-9-]{0,62}$")) } ?: return null
+    return TunNetSelection(entry, hostSlug)
+}
+
+fun VMessBean.isTunNet(): Boolean =
+    isVLESS && (uuid.endsWith(TUN_NET_SUFFIX, ignoreCase = true) || tunNetSelection() != null)
+
+fun VMessBean.tunNetRuntimeUuid(): String {
+    if (!isTunNet()) return uuid
+    val selector = uuid.indexOf(TUN_NET_SELECTOR, ignoreCase = true)
+    return if (selector >= 0) uuid.substring(0, selector) else uuid.dropLast(TUN_NET_SUFFIX.length)
+}
 
 data class VmessQRCode(
     var v: String = "",
