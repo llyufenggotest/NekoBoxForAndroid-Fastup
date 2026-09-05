@@ -36,7 +36,7 @@ popd
 ####
 
 if [ ! -d "sing-vmess" ]; then
-  git clone --no-checkout https://github.com/llyufeng/sing-vmess.git
+  git clone --no-checkout https://github.com/llyufenggotest/sing-vmess.git
 fi
 pushd sing-vmess
 git checkout "$COMMIT_SING_VMESS"
